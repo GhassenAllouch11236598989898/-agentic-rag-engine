@@ -1,0 +1,65 @@
+# ──────────────────────────────────────────────────────────────
+# Agentic RAG Engine — Docker Compose
+# ──────────────────────────────────────────────────────────────
+# Launch: docker compose up -d
+# Logs:   docker compose logs -f api
+# ──────────────────────────────────────────────────────────────
+
+services:
+  # ── PostgreSQL + pgvector ──────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: rag_postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-vector_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-vector_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── FastAPI RAG API ────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_api
+    command: >
+      uvicorn app.api:app
+        --host ${APP_HOST:-0.0.0.0}
+        --port ${APP_PORT:-8000}
+        --reload
+    ports:
+      - "${APP_PORT:-8000}:${APP_PORT:-8000}"
+    env_file: .env
+    volumes:
+      - ./app:/app/app
+      - ./sql:/app/sql
+      - ./documents:/app/documents
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ── Ollama — Local LLM Inference ────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  ollama_data:
+    driver: local
