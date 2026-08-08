@@ -51,8 +51,8 @@ class DocumentIngestionPipeline:
         self.extractor_config = PDFExtractionConfig(
             enable_ocr=False,
             images_scale=1.0,
-            include_images=True,
-            include_tables=True,
+            include_images=False,
+            include_tables=False,
         )
 
         # Chunking config

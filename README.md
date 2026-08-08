@@ -8,7 +8,6 @@
     <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/Pydantic_AI-0.7+-E92063?logo=pydantic&logoColor=white" alt="Pydantic AI" />
     <img src="https://img.shields.io/badge/pgvector-PostgreSQL_17-336791?logo=postgresql&logoColor=white" alt="pgvector" />
-    <img src="https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white" alt="Docker" />
     <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
   </p>
 </p>
@@ -26,7 +25,7 @@ A production-ready **Agentic RAG** system that combines an autonomous AI agent w
                              │  HTTP / SSE
                              ▼
 ┌──────────────────────────────────────────────────────────────────┐
-│                     FastAPI REST API (:8000)                      │
+│                     FastAPI REST API (:8000)                     │
 │  ┌──────────┐  ┌───────────────┐  ┌───────────────────────────┐  │
 │  │  /chat    │  │ /chat/stream  │  │ /search/vector | /hybrid  │  │
 │  └────┬─────┘  └───────┬───────┘  └────────────┬──────────────┘  │
@@ -74,59 +73,73 @@ A production-ready **Agentic RAG** system that combines an autonomous AI agent w
 | 🌊 **Real-Time Streaming** | Server-Sent Events for live token-by-token responses |
 | 📄 **PDF Ingestion** | Docling-powered extraction: text, tables, images, OCR |
 | 💬 **Session Memory** | Conversation history with automatic context injection |
-| 🐳 **Dockerized** | One-command deployment with Docker Compose |
+| ⚡ **Native Execution** | High-performance direct Python execution with zero virtualization overhead |
 
 ## Quick Start
 
 ### Prerequisites
 
-- [Docker](https://www.docker.com/) & Docker Compose
-- (Optional) [Ollama](https://ollama.ai/) for local LLM inference
+- **Python 3.11** or **3.12**
+- **Ollama** (for local LLM inference) or an OpenAI API key
+- **PostgreSQL** with the `pgvector` extension enabled (local or managed cloud instance like Neon)
 
-### 1. Clone & Configure
+---
+
+### 1. Configure Environment
 
 ```bash
-git clone https://github.com/your-username/agentic-rag-engine.git
-cd agentic-rag-engine
-
 cp .env.example .env
-# Edit .env with your preferred settings
+# Edit .env with your PostgreSQL credentials and preferences
 ```
 
-### 2. Launch with Docker Compose
+---
+
+### 2. Install Dependencies
 
 ```bash
-docker compose up -d
+pip install -r requirements.txt
 ```
 
-This starts:
-- **PostgreSQL 17 + pgvector** on port `5432`
-- **FastAPI API** on port `8000`
+---
 
-### 3. (Optional) Start Ollama
-
-If you want local LLM inference, uncomment the `ollama` service in `docker-compose.yml`, or run Ollama separately:
+### 3. Start Ollama (Local LLM)
 
 ```bash
 ollama pull llama3.1:8b
-ollama serve
+ollama run llama3.1:8b
 ```
+
+---
 
 ### 4. Ingest Documents
 
-Place your PDF files in the `documents/` folder, then:
+Place your PDF files in the `documents/` folder, then run:
 
 ```bash
-docker compose exec api python -m app.ingestion.ingest --documents documents/
+python -m app.ingestion.ingest --documents documents/
 ```
 
-### 5. Start Chatting!
+---
+
+### 5. Start the FastAPI Server
 
 ```bash
-curl -X POST http://localhost:8000/chat \
+uvicorn app.api:app --reload --host 127.0.0.1 --port 8000
+```
+
+Access the interactive API documentation at: **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**.
+
+---
+
+### 6. Start Chatting!
+
+```bash
+curl -X POST http://127.0.0.1:8000/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "What are the key findings in the uploaded documents?"}'
+  -d "{\"message\": \"What are the key findings in the uploaded documents?\"}"
 ```
+
+---
 
 ## API Reference
 
@@ -145,12 +158,12 @@ curl -X POST http://localhost:8000/chat \
 ### Example: Chat
 
 ```bash
-curl -s -X POST http://localhost:8000/chat \
+curl -s -X POST http://127.0.0.1:8000/chat \
   -H "Content-Type: application/json" \
   -d '{
     "message": "Summarize the main topics from all documents",
     "search_type": "hybrid"
-  }' | python -m json.tool
+  }'
 ```
 
 **Response:**
@@ -172,21 +185,23 @@ curl -s -X POST http://localhost:8000/chat \
 ### Example: Streaming Chat
 
 ```bash
-curl -N -X POST http://localhost:8000/chat/stream \
+curl -N -X POST http://127.0.0.1:8000/chat/stream \
   -H "Content-Type: application/json" \
-  -d '{"message": "Give a detailed explanation of the findings"}'
+  -d "{\"message\": \"Give a detailed explanation of the findings\"}"
 ```
 
 ### Example: Vector Search
 
 ```bash
-curl -s -X POST http://localhost:8000/search/vector \
+curl -s -X POST http://127.0.0.1:8000/search/vector \
   -H "Content-Type: application/json" \
   -d '{
     "query": "machine learning techniques",
     "limit": 5
-  }' | python -m json.tool
+  }'
 ```
+
+---
 
 ## Configuration
 
@@ -201,9 +216,11 @@ All configuration is managed through environment variables (`.env` file):
 | `EMBEDDING_DIM` | `384` | Must match model output dimension |
 | `OPENAI_API_KEY` | — | Required only when using OpenAI providers |
 | `APP_PORT` | `8000` | FastAPI port |
-| `DB_HOST` | `postgres` | PostgreSQL hostname |
+| `DB_HOST` | `localhost` | PostgreSQL hostname |
 
 > **⚠️ Important:** The `EMBEDDING_DIM` value must match the dimension in `sql/schema.sql`. If you switch to OpenAI embeddings (`text-embedding-3-small` → 1536), update both the `.env` and the schema.
+
+---
 
 ## Tech Stack
 
@@ -216,7 +233,8 @@ All configuration is managed through environment variables (`.env` file):
 | **Vector DB** | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector) |
 | **PDF Processing** | [Docling](https://github.com/DS4SD/docling) |
 | **Text Splitting** | [LangChain](https://langchain.readthedocs.io/) |
-| **Containerization** | Docker + Docker Compose |
+
+---
 
 ## Project Structure
 
@@ -238,35 +256,13 @@ All configuration is managed through environment variables (`.env` file):
 │   └── schema.sql           # pgvector schema + search functions
 ├── documents/               # Drop your PDFs here
 ├── tests/                   # Test suite
-├── docker-compose.yml       # Orchestration
-├── Dockerfile               # Multi-stage Python 3.12 build
 ├── pyproject.toml            # Project metadata & dependencies
 └── .env.example             # Configuration template
 ```
 
-## Development
+---
 
-### Local Setup (without Docker)
-
-```bash
-# Install uv (fast Python package manager)
-pip install uv
-
-# Install dependencies
-uv pip install -r pyproject.toml
-
-# Start PostgreSQL with pgvector (e.g., via Docker)
-docker run -d --name pgvector \
-  -e POSTGRES_DB=vector_db \
-  -e POSTGRES_PASSWORD=postgres \
-  -p 5432:5432 \
-  pgvector/pgvector:pg17
-
-# Run the API
-uvicorn app.api:app --reload --port 8000
-```
-
-### Running Tests
+## Running Tests
 
 ```bash
 pytest

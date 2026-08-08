@@ -135,13 +135,15 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 async def get_or_create_session(request: ChatRequest) -> str:
     """Return an existing session or create a new one."""
-    if request.session_id:
+    if request.session_id and request.session_id.lower() != "string":
         session = await get_session(request.session_id)
         if session:
             return request.session_id
 
+    user_id = request.user_id if request.user_id and request.user_id.lower() != "string" else None
+    metadata = request.metadata if request.metadata != {"additionalProp1": {}} else {}
     return await create_session(
-        user_id=request.user_id, metadata=request.metadata
+        user_id=user_id, metadata=metadata
     )
 
 
@@ -158,11 +160,22 @@ def extract_tool_calls(result) -> List[ToolCall]:
     tools_used: List[ToolCall] = []
 
     try:
-        messages = result.all_messages()
+        if hasattr(result, "all_messages") and callable(result.all_messages):
+            messages = result.all_messages()
+        elif hasattr(result, "all_messages"):
+            messages = result.all_messages
+        elif hasattr(result, "messages") and callable(result.messages):
+            messages = result.messages()
+        elif hasattr(result, "messages"):
+            messages = result.messages
+        else:
+            messages = []
+
         for message in messages:
             if hasattr(message, "parts"):
                 for part in message.parts:
-                    if part.__class__.__name__ == "ToolCallPart":
+                    part_type = part.__class__.__name__
+                    if "ToolCall" in part_type or "tool_call" in getattr(part, "part_kind", ""):
                         try:
                             tool_name = (
                                 str(part.tool_name)
@@ -242,7 +255,15 @@ async def execute_agent(
             )
 
         result = await rag_agent.run(full_prompt, deps=deps)
-        response = result.data
+        
+        # Handle pydantic_ai result attributes across versions
+        if hasattr(result, "output"):
+            response = str(result.output)
+        elif hasattr(result, "data"):
+            response = str(result.data)
+        else:
+            response = str(result)
+
         tools_used = extract_tool_calls(result)
 
         if save_conversation:

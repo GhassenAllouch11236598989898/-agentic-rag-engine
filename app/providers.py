@@ -54,7 +54,7 @@ def get_llm_model(model_override: Optional[str] = None) -> OpenAIChatModel:
         logger.info("LLM provider: OpenAI (%s)", model_name)
     else:
         # Ollama exposes an OpenAI-compatible API on /v1
-        base_url = os.getenv("OLLAMA_BASE_URL", "http://ollama:11434")
+        base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
         model_name = model_override or os.getenv("LLM_MODEL", "llama3.1:8b")
         provider = OpenAIProvider(
             api_key="ollama",  # Ollama ignores the key but the field is required

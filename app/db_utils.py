@@ -7,6 +7,7 @@ and vector / hybrid search via stored SQL functions.
 
 import os
 import json
+import uuid as uuid_pkg
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
@@ -31,12 +32,13 @@ class DatabasePool:
     def __init__(self, database_url: Optional[str] = None):
         user = os.getenv("DB_USER", "postgres")
         password = os.getenv("DB_PASSWORD", "postgres")
-        host = os.getenv("DB_HOST", "postgres")
+        host = os.getenv("DB_HOST", "localhost")
         port = os.getenv("DB_PORT", "5432")
         dbname = os.getenv("DB_NAME", "vector_db")
 
         self.database_url = (
             database_url
+            or os.getenv("DATABASE_URL")
             or f"postgresql://{user}:{password}@{host}:{port}/{dbname}"
         )
         self.pool: Optional[Pool] = None
@@ -44,10 +46,13 @@ class DatabasePool:
     async def initialize(self):
         """Create the connection pool."""
         if not self.pool:
+            ssl_option = "require" if ("neon.tech" in self.database_url or "sslmode=require" in self.database_url or "supabase" in self.database_url) else None
+            clean_url = self.database_url.split("?")[0] if ssl_option else self.database_url
             self.pool = await asyncpg.create_pool(
-                self.database_url,
-                min_size=5,
-                max_size=20,
+                clean_url,
+                ssl=ssl_option,
+                min_size=2,
+                max_size=10,
                 max_inactive_connection_lifetime=300,
                 command_timeout=60,
             )
@@ -98,7 +103,7 @@ async def execute_init_sql(sql_path: str):
             logger.info("Schema already initialised — skipping.")
             return
 
-        with open(sql_path, "r") as fh:
+        with open(sql_path, "r", encoding="utf-8") as fh:
             sql = fh.read()
             await conn.execute(sql)
             logger.info("Schema created successfully.")
@@ -131,6 +136,11 @@ async def create_session(
 
 async def get_session(session_id: str) -> Optional[Dict[str, Any]]:
     """Get session by ID (returns ``None`` if expired or missing)."""
+    try:
+        uuid_pkg.UUID(str(session_id))
+    except (ValueError, TypeError):
+        return None
+
     async with db_pool.acquire() as conn:
         result = await conn.fetchrow(
             """
@@ -193,6 +203,11 @@ async def get_session_messages(
     limit: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """Return messages for a session ordered chronologically."""
+    try:
+        uuid_pkg.UUID(str(session_id))
+    except (ValueError, TypeError):
+        return []
+
     async with db_pool.acquire() as conn:
         query = """
             SELECT

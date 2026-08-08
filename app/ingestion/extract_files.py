@@ -1,19 +1,12 @@
-"""
-PDF content extraction using Docling.
-
-Supports OCR, table structure recognition, and image description
-extraction from PDF documents.
-"""
+import os
+os.environ["TORCH_COMPILE_DISABLE"] = "1"
+os.environ["TORCHDYNAMO_DISABLE"] = "1"
 
 import logging
 import time
 from pathlib import Path
 from typing import Dict, Any, Tuple
 from dataclasses import dataclass
-
-from docling.document_converter import DocumentConverter, PdfFormatOption
-from docling.datamodel.base_models import InputFormat
-from docling.datamodel.pipeline_options import PdfPipelineOptions
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,42 +15,21 @@ logger = logging.getLogger(__name__)
 @dataclass
 class PDFExtractionConfig:
     """Configuration for PDF extraction pipeline."""
-    enable_ocr: bool = True
-    images_scale: float = 2.0
-    include_images: bool = True
-    include_tables: bool = True
+    enable_ocr: bool = False
+    images_scale: float = 1.0
+    include_images: bool = False
+    include_tables: bool = False
 
 
 class PDFExtractor:
-    """Extract structured content from PDF files using Docling."""
+    """Extract clean structured content from PDF files quickly and reliably."""
 
     def __init__(self, config: PDFExtractionConfig = None):
         self.config = config or PDFExtractionConfig()
-        self._setup_converter()
-
-    def _setup_converter(self):
-        """Initialise the Docling document converter."""
-        pipeline_options = PdfPipelineOptions()
-        pipeline_options.do_ocr = self.config.enable_ocr
-        pipeline_options.do_picture_description = self.config.include_images
-        pipeline_options.do_table_structure = self.config.include_tables
-        pipeline_options.images_scale = self.config.images_scale
-
-        try:
-            self.converter = DocumentConverter(
-                format_options={
-                    InputFormat.PDF: PdfFormatOption(
-                        pipeline_options=pipeline_options
-                    )
-                }
-            )
-        except Exception as exc:
-            logger.error("Failed to initialise Docling converter: %s", exc)
-            raise
 
     def extract_pdf_content(self, pdf_path: str) -> Tuple[str, Dict[str, Any]]:
         """
-        Extract text, tables, and image descriptions from a PDF.
+        Extract text and structure from a PDF.
 
         Args:
             pdf_path: Filesystem path to the PDF file.
@@ -72,21 +44,45 @@ class PDFExtractor:
         logger.info("Extracting content from: %s", pdf_path.name)
         start_time = time.time()
 
-        result = self.converter.convert(str(pdf_path))
-        elapsed = time.time() - start_time
+        content_parts = []
+        page_count = 0
 
-        doc = result.document
-        content_text = doc.export_to_markdown()
+        # Method 1: PyMuPDF (Fastest, highest quality text & layout extraction)
+        try:
+            import fitz  # PyMuPDF
+            doc = fitz.open(str(pdf_path))
+            page_count = len(doc)
+            for page_num in range(page_count):
+                page = doc.load_page(page_num)
+                text = page.get_text("text")
+                if text.strip():
+                    content_parts.append(f"## Page {page_num + 1}\n\n{text.strip()}")
+            doc.close()
+            method = "pymupdf"
+        except Exception as exc:
+            logger.warning("PyMuPDF extraction failed (%s), falling back to pypdf", exc)
+            try:
+                import pypdf
+                reader = pypdf.PdfReader(str(pdf_path))
+                page_count = len(reader.pages)
+                for i, page in enumerate(reader.pages):
+                    text = page.extract_text()
+                    if text and text.strip():
+                        content_parts.append(f"## Page {i + 1}\n\n{text.strip()}")
+                method = "pypdf"
+            except Exception as e2:
+                logger.error("All PDF extraction methods failed: %s", e2)
+                raise
+
+        content_text = "\n\n".join(content_parts)
+        elapsed = time.time() - start_time
 
         metadata = {
             "source": str(pdf_path),
             "title": pdf_path.stem,
             "processing_time": round(elapsed, 2),
-            "pages": len(doc.pages),
-            "texts": len(doc.texts),
-            "pictures": len(doc.pictures),
-            "tables": len(doc.tables),
-            "extraction_method": "docling",
+            "pages": page_count,
+            "extraction_method": method,
             "content_type": "pdf",
         }
         return content_text, metadata
