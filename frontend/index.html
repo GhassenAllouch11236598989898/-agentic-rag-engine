@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agentic RAG Engine — Private, Source-Grounded Document Intelligence</title>
+  <meta name="description" content="Enterprise-grade Retrieval-Augmented Generation with agentic workflows, hybrid search, and local LLM evaluation." />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2L28 9V23L16 30L4 23V9L16 2Z' stroke='%232563eb' stroke-width='2.5' fill='none'/><circle cx='16' cy='16' r='3.5' fill='%232563eb'/></svg>" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div class="layout-wrapper">
+
+  <!-- ════════════════════════════════════════════
+       LEFT SIDEBAR
+       ════════════════════════════════════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <!-- Brand Logo -->
+    <div class="sidebar-brand">
+      <div class="brand-icon">
+        <svg width="30" height="30" viewBox="0 0 32 32" fill="none">
+          <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>
+          <path d="M16 2V30M4 9L28 23M28 9L4 23" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-opacity="0.85"/>
+          <circle cx="16" cy="16" r="3.2" fill="#2563eb"/>
+        </svg>
+      </div>
+      <span class="brand-name">Agentic RAG</span>
+    </div>
+
+    <!-- Navigation Menu -->
+    <nav class="sidebar-nav" role="tablist">
+      <button class="nav-item" data-tab="overview" role="tab" id="nav-overview">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+          <polyline points="9 22 9 12 15 12 15 22"/>
+        </svg>
+        <span>Overview</span>
+      </button>
+
+      <button class="nav-item" data-tab="documents" role="tab" id="nav-documents">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+          <polyline points="14 2 14 8 20 8"/>
+          <line x1="16" y1="13" x2="8" y2="13"/>
+          <line x1="16" y1="17" x2="8" y2="17"/>
+        </svg>
+        <span>Documents</span>
+      </button>
+
+      <button class="nav-item" data-tab="search" role="tab" id="nav-search">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <span>Hybrid Search</span>
+      </button>
+
+      <button class="nav-item active" data-tab="chat" role="tab" id="nav-chat">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+        <span>Agentic Chat</span>
+      </button>
+
+      <button class="nav-item" data-tab="evaluation" role="tab" id="nav-evaluation">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="20" x2="18" y2="10"/>
+          <line x1="12" y1="20" x2="12" y2="4"/>
+          <line x1="6" y1="20" x2="6" y2="14"/>
+        </svg>
+        <span>Model Evaluation</span>
+      </button>
+
+      <button class="nav-item" data-tab="settings" role="tab" id="nav-settings">
+        <svg class="nav-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+    <!-- Bottom Status Pill -->
+    <div class="sidebar-footer">
+      <div class="sidebar-status-pill" id="sidebar-status-pill" title="System running locally">
+        <span class="status-dot"></span>
+        <span class="status-mode-label" id="status-mode-label">Local mode</span>
+        <span class="status-chevron">›</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ════════════════════════════════════════════
+       MAIN CONTENT CONTAINER
+       ════════════════════════════════════════════ -->
+  <main class="main-content">
+
+    <!-- Top Header -->
+    <header class="top-header">
+      <div class="header-titles">
+        <h1 class="engine-title">Agentic RAG Engine</h1>
+        <p class="engine-subtitle">Private, source-grounded document intelligence</p>
+      </div>
+
+      <div class="header-actions">
+        <!-- Model Selector Pill -->
+        <div class="dropdown-pill-wrapper">
+          <button class="dropdown-pill" id="model-selector-btn">
+            <svg class="pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="11" width="18" height="10" rx="2"/>
+              <circle cx="12" cy="5" r="2"/>
+              <path d="M12 7v4"/>
+              <line x1="8" y1="16" x2="8" y2="16"/>
+              <line x1="16" y1="16" x2="16" y2="16"/>
+            </svg>
+            <span id="active-model-name">Ollama · Llama 3.1</span>
+            <span class="chevron-down">⌵</span>
+          </button>
+          <div class="dropdown-menu" id="model-dropdown-menu">
+            <div class="dropdown-item active" data-model="llama3.1:8b">🦙 Ollama · Llama 3.1 (8B) <span class="check-mark">✓</span></div>
+            <div class="dropdown-item" data-model="gpt-4o-mini">🌀 OpenAI · GPT-4o mini</div>
+            <div class="dropdown-item" data-model="gpt-4o">⚡ OpenAI · GPT-4o</div>
+          </div>
+        </div>
+
+        <!-- Upload Documents Button -->
+        <button class="primary-btn upload-btn" id="upload-doc-modal-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Upload documents</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- ════════════════════════════════════════════
+         TAB 1: AGENTIC CHAT (Matching Image 2)
+         ════════════════════════════════════════════ -->
+    <section class="tab-panel active" id="panel-chat" role="tabpanel">
+      <div class="chat-layout-grid">
+
+        <!-- Left: Chat Conversation Area -->
+        <div class="chat-card-box">
+          <div class="card-box-header">
+            <div class="header-left-title">
+              <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <h2>Ask your knowledge base</h2>
+            </div>
+            <button class="options-btn" id="chat-options-btn" title="Chat Options">···</button>
+          </div>
+
+          <!-- Messages Scroll Area -->
+          <div class="chat-scroll-area" id="chat-messages">
+            <!-- Default Sample Conversation matching Screenshot 2 -->
+            <!-- User message -->
+            <div class="message-row user-row">
+              <div class="message-bubble user-bubble">
+                <p>How does hybrid retrieval improve search quality?</p>
+              </div>
+              <div class="user-avatar-badge">U</div>
+            </div>
+            <div class="message-time-meta user-time">10:24 AM</div>
+
+            <!-- Agent Execution Reasoning Process Bar -->
+            <div class="agent-process-bar">
+              <div class="process-steps">
+                <span class="process-step done">
+                  <span class="step-check">✓</span> Query analyzed
+                </span>
+                <span class="step-arrow">→</span>
+                <span class="process-step done">
+                  <span class="step-check">✓</span> Hybrid search
+                </span>
+                <span class="step-arrow">→</span>
+                <span class="process-step done">
+                  <span class="step-check">✓</span> Sources retrieved
+                </span>
+              </div>
+              <div class="process-elapsed">Completed in 2.3s</div>
+            </div>
+
+            <!-- Assistant response bubble -->
+            <div class="message-row assistant-row">
+              <div class="bot-avatar-badge">
+                <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+                  <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#2563eb" stroke-width="2" fill="none"/>
+                  <circle cx="16" cy="16" r="3.5" fill="#2563eb"/>
+                </svg>
+              </div>
+              <div class="message-bubble assistant-bubble">
+                <div class="bubble-content" id="sample-assistant-text">
+                  Hybrid retrieval combines semantic similarity with keyword matching. Reciprocal Rank Fusion merges both result lists, helping surface relevant passages that either method might miss. <span class="citation-chip">[1]</span> <span class="citation-chip">[2]</span>
+                </div>
+                <div class="bubble-meta-row">
+                  <span class="bubble-timestamp">10:24 AM</span>
+                </div>
+
+                <!-- Grounded Sources Section -->
+                <div class="bubble-sources-section">
+                  <div class="sources-label-row">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                    </svg>
+                    <span>Sources</span>
+                  </div>
+                  <div class="sources-cards-row">
+                    <div class="source-card" onclick="inspectPassage(1)">
+                      <div class="source-file-badge pdf">pdf</div>
+                      <div class="source-info">
+                        <div class="source-filename">Retrieval architecture.pdf</div>
+                        <div class="source-page">Page 4</div>
+                      </div>
+                      <div class="source-chevron">›</div>
+                    </div>
+                    <div class="source-card" onclick="inspectPassage(2)">
+                      <div class="source-file-badge doc">doc</div>
+                      <div class="source-info">
+                        <div class="source-filename">Search evaluation.pdf</div>
+                        <div class="source-page">Page 7</div>
+                      </div>
+                      <div class="source-chevron">›</div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Bottom Chat Input Bar -->
+          <div class="chat-input-bar">
+            <button class="attach-btn" id="chat-attach-btn" title="Attach context file">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
+              </svg>
+            </button>
+            <input
+              type="text"
+              class="chat-text-input"
+              id="chat-input"
+              placeholder="Ask a question about your documents…"
+              autocomplete="off"
+            />
+            <button class="send-action-btn" id="send-btn" title="Send query" aria-label="Send">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Retrieval Inspector Panel -->
+        <div class="inspector-card-box">
+          <div class="card-box-header">
+            <div class="header-left-title">
+              <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="20" x2="18" y2="10"/>
+                <line x1="12" y1="20" x2="12" y2="4"/>
+                <line x1="6" y1="20" x2="6" y2="14"/>
+              </svg>
+              <h2>Retrieval inspector</h2>
+            </div>
+            <button class="options-btn" title="Inspector Options">···</button>
+          </div>
+
+          <!-- Segmented Search Strategy Switcher -->
+          <div class="strategy-segmented-bar">
+            <button class="segment-btn active" data-strategy="hybrid" id="btn-strat-hybrid">Hybrid</button>
+            <button class="segment-btn" data-strategy="semantic" id="btn-strat-semantic">Semantic</button>
+            <button class="segment-btn" data-strategy="keyword" id="btn-strat-keyword">Keyword</button>
+          </div>
+
+          <!-- Visual Architecture Flow Diagram -->
+          <div class="retrieval-flow-diagram">
+            <div class="flow-inputs">
+              <div class="flow-node-box">
+                <div class="flow-node-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                  </svg>
+                </div>
+                <div class="flow-node-text">
+                  <span class="flow-node-title">Vector search</span>
+                  <span class="flow-node-sub">Semantic similarity</span>
+                </div>
+              </div>
+
+              <div class="flow-node-box">
+                <div class="flow-node-icon">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                  </svg>
+                </div>
+                <div class="flow-node-text">
+                  <span class="flow-node-title">Full-text search</span>
+                  <span class="flow-node-sub">Keyword matching</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Curved Connecting Lines -->
+            <div class="flow-connector">
+              <svg width="34" height="68" viewBox="0 0 34 68" fill="none">
+                <path d="M0 16 C 18 16, 18 34, 34 34" stroke="#2563eb" stroke-width="2" fill="none"/>
+                <path d="M0 52 C 18 52, 18 34, 34 34" stroke="#2563eb" stroke-width="2" fill="none"/>
+              </svg>
+            </div>
+
+            <!-- Output RRF Node -->
+            <div class="flow-output-box">
+              <div class="flow-node-box rrf-highlight">
+                <div class="flow-node-icon rrf-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2">
+                    <line x1="18" y1="20" x2="18" y2="10"/>
+                    <line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                  </svg>
+                </div>
+                <div class="flow-node-text">
+                  <span class="flow-node-title">RRF ranking</span>
+                  <span class="flow-node-sub">Combines and reranks results</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Retrieved Passages Section -->
+          <div class="passages-section">
+            <div class="passages-header-row">
+              <h3>Retrieved passages</h3>
+              <button class="link-btn" id="view-all-passages-btn">View all →</button>
+            </div>
+
+            <div class="passages-list" id="passages-list">
+              <!-- Passage 01 -->
+              <div class="passage-card" id="passage-card-1">
+                <div class="passage-top-row">
+                  <span class="passage-num">01</span>
+                  <div class="passage-source-pill">
+                    <span class="source-file-badge pdf small">pdf</span>
+                    <span class="passage-file-name">Retrieval architecture.pdf</span>
+                    <span class="passage-page-tag">Page 4</span>
+                  </div>
+                  <div class="passage-relevance-pill">
+                    <span class="relevance-label">Relevance</span>
+                    <div class="relevance-meter">
+                      <div class="relevance-fill" style="width: 94%;"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="passage-quote">
+                  "Our system uses hybrid retrieval, combining dense vector search with sparse keyword matching. Reciprocal Rank Fusion (RRF) merges the results to improve coverage and surface complementary evidence …"
+                </p>
+              </div>
+
+              <!-- Passage 02 -->
+              <div class="passage-card" id="passage-card-2">
+                <div class="passage-top-row">
+                  <span class="passage-num">02</span>
+                  <div class="passage-source-pill">
+                    <span class="source-file-badge doc small">doc</span>
+                    <span class="passage-file-name">Search evaluation.pdf</span>
+                    <span class="passage-page-tag">Page 7</span>
+                  </div>
+                  <div class="passage-relevance-pill">
+                    <span class="relevance-label">Relevance</span>
+                    <div class="relevance-meter">
+                      <div class="relevance-fill" style="width: 88%;"></div>
+                    </div>
+                  </div>
+                </div>
+                <p class="passage-quote">
+                  "Hybrid retrieval consistently outperforms single-method approaches by capturing both semantic meaning and exact term matches, especially for domain-specific queries …"
+                </p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+
+    <!-- ════════════════════════════════════════════
+         TAB 2: MODEL EVALUATION (Matching Image 1)
+         ════════════════════════════════════════════ -->
+    <section class="tab-panel" id="panel-evaluation" role="tabpanel">
+
+      <!-- Top Title + Demo Notice Banner -->
+      <div class="eval-top-banner">
+        <div class="eval-title-group">
+          <div class="eval-title-row">
+            <svg class="eval-header-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2">
+              <line x1="18" y1="20" x2="18" y2="10"/>
+              <line x1="12" y1="20" x2="12" y2="4"/>
+              <line x1="6" y1="20" x2="6" y2="14"/>
+            </svg>
+            <h2>Model Evaluation</h2>
+          </div>
+          <p class="eval-subtitle">Test model answers against reference answers and source evidence.</p>
+        </div>
+
+        <div class="demo-data-alert">
+          <div class="alert-exclamation">!</div>
+          <div class="alert-text-group">
+            <span class="alert-bold">Illustrative demo data</span>
+            <span class="alert-sub">Not real benchmarks. For demonstration only.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filter Controls Bar -->
+      <div class="eval-controls-bar">
+        <div class="eval-selectors-group">
+          <!-- Dataset Selector -->
+          <div class="eval-select-pill">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <span class="pill-label-bold">Dataset</span>
+            <span class="pill-value-text">Document QA · 100 questions</span>
+            <span class="chevron-down">⌵</span>
+          </div>
+
+          <!-- Models Selector -->
+          <div class="eval-select-pill">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            <span class="pill-label-bold">Models</span>
+            <span class="pill-value-text">Llama 3.1 8B, GPT-4o mini</span>
+            <span class="chevron-down">⌵</span>
+          </div>
+        </div>
+
+        <div class="eval-actions-group">
+          <button class="secondary-btn" id="btn-upload-test-set">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Upload test set</span>
+          </button>
+
+          <button class="primary-btn run-eval-btn" id="btn-run-evaluation">
+            <span class="play-icon">▶</span>
+            <span>Run evaluation</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Evaluation Main Two-Column Grid -->
+      <div class="eval-grid-container">
+
+        <!-- Left Column: Tables & Test Case Inspector -->
+        <div class="eval-main-col">
+
+          <!-- Card 1: Model Comparison Table -->
+          <div class="white-card-box">
+            <div class="card-box-header">
+              <div class="header-left-title">
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                  <line x1="18" y1="20" x2="18" y2="10"/>
+                  <line x1="12" y1="20" x2="12" y2="4"/>
+                  <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                <h3>Model comparison</h3>
+              </div>
+              <div class="settings-hint">Same dataset and retrieval settings ⓘ</div>
+            </div>
+
+            <div class="comparison-table-wrapper">
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th>Model</th>
+                    <th>Correctness</th>
+                    <th>Faithfulness</th>
+                    <th>Citation accuracy</th>
+                    <th>Passed</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Row 1: Llama 3.1 8B -->
+                  <tr>
+                    <td class="model-cell">
+                      <div class="model-cell-inner">
+                        <span class="model-icon-svg">🦙</span>
+                        <span class="model-name-title">Llama 3.1 8B</span>
+                      </div>
+                    </td>
+                    <td class="metric-cell">
+                      <div class="metric-pct">86%</div>
+                      <div class="metric-progress-bar">
+                        <div class="progress-fill teal" style="width: 86%;"></div>
+                      </div>
+                    </td>
+                    <td class="metric-cell">
+                      <div class="metric-pct">92%</div>
+                      <div class="metric-progress-bar">
+                        <div class="progress-fill teal" style="width: 92%;"></div>
+                      </div>
+                    </td>
+                    <td class="metric-cell">
+                      <div class="metric-pct">90%</div>
+                      <div class="metric-progress-bar">
+                        <div class="progress-fill teal" style="width: 90%;"></div>
+                      </div>
+                    </td>
+                    <td class="passed-cell">
+                      <span class="passed-count">86</span> <span class="passed-total">/ 100</span>
+                    </td>
+                  </tr>
+
+                  <!-- Row 2: GPT-4o mini -->
+                  <tr>
+                    <td class="model-cell">
+                      <div class="model-cell-inner">
+                        <span class="model-icon-svg">🌀</span>
+                        <span class="model-name-title">GPT-4o mini</span>
+                      </div>
+                    </td>
+                    <td class="metric-cell">
+                      <div class="metric-pct">91%</div>
+                      <div class="metric-progress-bar">
+                        <div class="progress-fill blue" style="width: 91%;"></div>
+                      </div>
+                    </td>
+                    <td class="metric-cell">
+                      <div class="metric-pct">95%</div>
+                      <div class="metric-progress-bar">
+                        <div class="progress-fill blue" style="width: 95%;"></div>
+                      </div>
+                    </td>
+                    <td class="metric-cell">
+                      <div class="metric-pct">94%</div>
+                      <div class="metric-progress-bar">
+                        <div class="progress-fill blue" style="width: 94%;"></div>
+                      </div>
+                    </td>
+                    <td class="passed-cell">
+                      <span class="passed-count">91</span> <span class="passed-total">/ 100</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Card 2: Test Case Inspector -->
+          <div class="white-card-box">
+            <div class="card-box-header">
+              <div class="header-left-title">
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <h3>Test case inspector</h3>
+              </div>
+
+              <!-- Filter Pills -->
+              <div class="test-case-filter-pills">
+                <button class="filter-pill active" data-filter="all">All (100)</button>
+                <button class="filter-pill" data-filter="passed">Passed (86)</button>
+                <button class="filter-pill" data-filter="failed">Failed (8)</button>
+                <button class="filter-pill" data-filter="review">Needs review (6)</button>
+              </div>
+            </div>
+
+            <!-- Question and Reference Answer Box -->
+            <div class="test-case-prompt-box">
+              <div class="tc-field-row">
+                <span class="tc-field-label">Question</span>
+                <span class="tc-field-value" id="tc-question-text">How are hybrid search results combined?</span>
+              </div>
+              <div class="tc-field-row">
+                <span class="tc-field-label">Reference answer</span>
+                <span class="tc-field-value" id="tc-ref-answer-text">Reciprocal Rank Fusion merges vector and keyword rankings.</span>
+              </div>
+            </div>
+
+            <!-- Side-by-Side Model Comparison Cards -->
+            <div class="models-comparison-grid">
+
+              <!-- Model 1: Llama 3.1 8B -->
+              <div class="model-eval-card">
+                <div class="eval-card-top">
+                  <div class="eval-model-title">
+                    <span class="eval-model-emoji">🦙</span>
+                    <h4>Llama 3.1 8B</h4>
+                  </div>
+                  <span class="badge-pass">✓ Pass</span>
+                </div>
+                <p class="eval-card-text">
+                  Hybrid search uses Reciprocal Rank Fusion (RRF) to combine vector similarity and keyword matching results, merging both ranked lists into a single ranking.
+                </p>
+                <div class="eval-card-footer">
+                  <span class="evidence-label">Source evidence</span>
+                  <div class="evidence-link-pill">
+                    <span class="source-file-badge pdf micro">pdf</span>
+                    <span class="evidence-name">Retrieval architecture.pdf - Page 4</span>
+                    <svg class="ext-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Model 2: GPT-4o mini -->
+              <div class="model-eval-card">
+                <div class="eval-card-top">
+                  <div class="eval-model-title">
+                    <span class="eval-model-emoji">🌀</span>
+                    <h4>GPT-4o mini</h4>
+                  </div>
+                  <span class="badge-pass">✓ Pass</span>
+                </div>
+                <p class="eval-card-text">
+                  The system combines vector and keyword search results using Reciprocal Rank Fusion, which merges the two ranked lists to produce a unified ranking of relevant documents.
+                </p>
+                <div class="eval-card-footer">
+                  <span class="evidence-label">Source evidence</span>
+                  <div class="evidence-link-pill">
+                    <span class="source-file-badge pdf micro">pdf</span>
+                    <span class="evidence-name">Retrieval architecture.pdf - Page 4</span>
+                    <svg class="ext-link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                      <polyline points="15 3 21 3 21 9"/>
+                      <line x1="10" y1="14" x2="21" y2="3"/>
+                    </svg>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+
+        <!-- Right Column: Criteria & Review Queue -->
+        <div class="eval-side-col">
+
+          <!-- Card 1: Evaluation Criteria -->
+          <div class="white-card-box">
+            <div class="card-box-header">
+              <div class="header-left-title">
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                </svg>
+                <h3>Evaluation criteria</h3>
+              </div>
+            </div>
+
+            <div class="criteria-list">
+              <!-- Item 1 -->
+              <div class="criterion-item">
+                <div class="criterion-icon-circle green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5">
+                    <circle cx="12" cy="12" r="10"/>
+                    <circle cx="12" cy="12" r="6"/>
+                    <circle cx="12" cy="12" r="2"/>
+                  </svg>
+                </div>
+                <div class="criterion-info">
+                  <span class="criterion-title">Correctness</span>
+                  <span class="criterion-desc">Matches the reference answer</span>
+                </div>
+              </div>
+
+              <!-- Item 2 -->
+              <div class="criterion-item">
+                <div class="criterion-icon-circle blue">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                  </svg>
+                </div>
+                <div class="criterion-info">
+                  <span class="criterion-title">Faithfulness</span>
+                  <span class="criterion-desc">Supported by retrieved evidence</span>
+                </div>
+              </div>
+
+              <!-- Item 3 -->
+              <div class="criterion-item">
+                <div class="criterion-icon-circle blue-alt">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.5">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                </div>
+                <div class="criterion-info">
+                  <span class="criterion-title">Citation accuracy</span>
+                  <span class="criterion-desc">Sources support the claims</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: Review Queue -->
+          <div class="white-card-box">
+            <div class="card-box-header">
+              <div class="header-left-title">
+                <svg class="header-icon" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                <h3>Review queue</h3>
+              </div>
+              <button class="link-btn">View all →</button>
+            </div>
+
+            <div class="review-queue-list">
+              <!-- Review 1 -->
+              <div class="review-queue-item">
+                <div class="review-icon-box orange">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                </div>
+                <div class="review-info">
+                  <span class="review-title">Unsupported claims</span>
+                  <span class="review-desc">Model answer not supported by retrieved sources</span>
+                </div>
+                <span class="review-counter-badge">8</span>
+              </div>
+
+              <!-- Review 2 -->
+              <div class="review-queue-item">
+                <div class="review-icon-box orange">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                    <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                  </svg>
+                </div>
+                <div class="review-info">
+                  <span class="review-title">Human review</span>
+                  <span class="review-desc">Ambiguous, incomplete, or borderline cases</span>
+                </div>
+                <span class="review-counter-badge">6</span>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         TAB 3: DOCUMENTS (Knowledge Base)
+         ════════════════════════════════════════════ -->
+    <section class="tab-panel" id="panel-documents" role="tabpanel">
+      <div class="white-card-box full-panel">
+        <div class="card-box-header">
+          <div>
+            <h3>Knowledge Base & Ingested Documents</h3>
+            <p class="header-sub-text">Browse and inspect documents indexed in PostgreSQL with pgvector embeddings.</p>
+          </div>
+          <button class="secondary-btn" id="refresh-docs-btn">🔄 Refresh</button>
+        </div>
+        <div class="documents-grid" id="documents-grid">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         TAB 4: HYBRID SEARCH PLAYGROUND
+         ════════════════════════════════════════════ -->
+    <section class="tab-panel" id="panel-search" role="tabpanel">
+      <div class="white-card-box full-panel">
+        <div class="card-box-header">
+          <div>
+            <h3>Interactive Search Playground</h3>
+            <p class="header-sub-text">Compare dense vector similarity, BM25 full-text keyword ranking, and Reciprocal Rank Fusion.</p>
+          </div>
+        </div>
+        <div class="search-playground-form">
+          <div class="search-input-wrap">
+            <input type="text" id="playground-query" class="playground-input" placeholder="Enter a search query across documents..." />
+            <button class="primary-btn" id="playground-search-btn">Search</button>
+          </div>
+          <div class="strategy-options">
+            <label class="radio-label"><input type="radio" name="search-strat" value="hybrid" checked /> Hybrid (RRF)</label>
+            <label class="radio-label"><input type="radio" name="search-strat" value="vector" /> Dense Vector</label>
+          </div>
+        </div>
+        <div id="playground-results" class="playground-results-list"></div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         TAB 5: OVERVIEW DASHBOARD
+         ════════════════════════════════════════════ -->
+    <section class="tab-panel" id="panel-overview" role="tabpanel">
+      <div class="overview-dashboard-grid">
+        <div class="kpi-card">
+          <div class="kpi-label">Total Documents</div>
+          <div class="kpi-value" id="kpi-docs">2</div>
+          <div class="kpi-meta">Indexed in pgvector</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Active Chunks</div>
+          <div class="kpi-value" id="kpi-chunks">84</div>
+          <div class="kpi-meta">Chunk size: 850 chars</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">Embedding Provider</div>
+          <div class="kpi-value highlight" id="kpi-embed">all-MiniLM-L6-v2</div>
+          <div class="kpi-meta">384 dimensions · Local CPU</div>
+        </div>
+        <div class="kpi-card">
+          <div class="kpi-label">LLM Reasoning Agent</div>
+          <div class="kpi-value highlight" id="kpi-llm">Llama 3.1:8b</div>
+          <div class="kpi-meta">Ollama local inference</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         TAB 6: SETTINGS
+         ════════════════════════════════════════════ -->
+    <section class="tab-panel" id="panel-settings" role="tabpanel">
+      <div class="white-card-box full-panel">
+        <div class="card-box-header">
+          <h3>System Configuration</h3>
+        </div>
+        <div class="settings-form">
+          <div class="form-group">
+            <label>Ollama Base URL</label>
+            <input type="text" value="http://127.0.0.1:11434" readonly class="settings-input" />
+          </div>
+          <div class="form-group">
+            <label>Active Agent Model</label>
+            <input type="text" value="llama3.1:8b" readonly class="settings-input" />
+          </div>
+          <div class="form-group">
+            <label>Vector Store</label>
+            <input type="text" value="PostgreSQL 16 + pgvector (127.0.0.1:5432)" readonly class="settings-input" />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ════════════════════════════════════════════
+         BOTTOM GLOBAL FOOTER (Matching Screenshots)
+         ════════════════════════════════════════════ -->
+    <footer class="app-global-footer">
+      <div class="footer-tech-stack">
+        <div class="tech-item">
+          <svg width="15" height="15" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#2563eb" stroke-width="2.5" fill="none"/>
+            <circle cx="16" cy="16" r="3" fill="#2563eb"/>
+          </svg>
+          <span>Pydantic AI</span>
+        </div>
+        <span class="tech-dot">•</span>
+        <div class="tech-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#00d4aa">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+          <span>FastAPI</span>
+        </div>
+        <span class="tech-dot">•</span>
+        <div class="tech-item">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#2563eb">
+            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+          </svg>
+          <span>PostgreSQL + pgvector</span>
+        </div>
+      </div>
+
+      <div class="footer-note" id="footer-note-text">
+        Automated scores support human review.
+      </div>
+    </footer>
+
+  </main>
+
+</div>
+
+<!-- Upload Modal -->
+<div class="modal-overlay" id="upload-modal" style="display:none;">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3>Upload Documents to Knowledge Base</h3>
+      <button class="modal-close-btn" id="modal-close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="drop-zone" id="drop-zone">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.8">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+          <polyline points="17 8 12 3 7 8"/>
+          <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p class="drop-zone-text">Drag &amp; drop PDF or text files here, or <strong>browse files</strong></p>
+        <span class="drop-zone-hint">Supports PDF, Markdown, TXT (auto-chunked &amp; embedded)</span>
+        <input type="file" id="file-input" multiple style="display:none;" />
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="secondary-btn" id="modal-cancel-btn">Cancel</button>
+      <button class="primary-btn" id="modal-submit-btn">Ingest &amp; Vectorize</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

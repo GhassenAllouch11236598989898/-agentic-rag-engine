@@ -13,8 +13,11 @@ from typing import Dict, Any, List, Optional
 from datetime import datetime
 import uuid
 
+from pathlib import Path
+
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 import uvicorn
@@ -40,7 +43,10 @@ from .models import (
     ErrorResponse,
     HealthStatus,
     ToolCall,
+    EvaluationRequest,
+    EvaluationResult,
 )
+from .evaluator import get_evaluator
 from .tools import (
     vector_search_tool,
     hybrid_search_tool,
@@ -127,6 +133,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Mount frontend static files
+_frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
+if _frontend_dir.is_dir():
+    app.mount("/static", StaticFiles(directory=str(_frontend_dir)), name="static")
 
 
 # ---------------------------------------------------------------------------
@@ -238,8 +249,8 @@ async def execute_agent(
     session_id: str,
     user_id: Optional[str] = None,
     save_conversation: bool = True,
-) -> tuple[str, List[ToolCall]]:
-    """Run the agent with context and return (response, tool_calls)."""
+) -> tuple[str, List[ToolCall], List[str]]:
+    """Run the agent with context and return (response, tool_calls, retrieved_contexts)."""
     try:
         deps = AgentDependencies(session_id=session_id, user_id=user_id)
         context = await get_conversation_context(session_id)
@@ -266,6 +277,9 @@ async def execute_agent(
 
         tools_used = extract_tool_calls(result)
 
+        # Collect retrieved chunk texts for evaluation
+        retrieved_contexts = [c["content"] for c in deps.retrieved_chunks if "content" in c]
+
         if save_conversation:
             await save_conversation_turn(
                 session_id=session_id,
@@ -274,7 +288,7 @@ async def execute_agent(
                 metadata={"user_id": user_id, "tool_calls": len(tools_used)},
             )
 
-        return response, tools_used
+        return response, tools_used, retrieved_contexts
 
     except Exception as exc:
         logger.error("Agent execution failed: %s", exc)
@@ -288,7 +302,7 @@ async def execute_agent(
                 assistant_message=error_response,
                 metadata={"error": str(exc)},
             )
-        return error_response, []
+        return error_response, [], []
 
 
 # ---------------------------------------------------------------------------
@@ -317,21 +331,34 @@ async def health_check():
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Non-streaming chat endpoint."""
+    """Non-streaming chat endpoint with automatic RAG evaluation."""
     try:
         session_id = await get_or_create_session(request)
 
-        response, tools_used = await execute_agent(
+        response, tools_used, retrieved_contexts = await execute_agent(
             message=request.message,
             session_id=session_id,
             user_id=request.user_id,
         )
+
+        # Run RAG evaluation
+        evaluation = None
+        try:
+            evaluator = get_evaluator()
+            evaluation = await evaluator.evaluate(
+                query=request.message,
+                response=response,
+                contexts=retrieved_contexts,
+            )
+        except Exception as eval_exc:
+            logger.warning("Evaluation failed (non-blocking): %s", eval_exc)
 
         return ChatResponse(
             message=response,
             session_id=session_id,
             tools_used=tools_used,
             metadata={"search_type": str(request.search_type)},
+            evaluation=evaluation,
         )
     except Exception as exc:
         logger.error("Chat endpoint failed: %s", exc)
@@ -416,6 +443,20 @@ async def chat_stream(request: ChatRequest):
                     },
                 )
 
+                # Run RAG evaluation and emit as SSE event
+                try:
+                    retrieved_contexts = [c["content"] for c in deps.retrieved_chunks if "content" in c]
+                    evaluator = get_evaluator()
+                    evaluation = await evaluator.evaluate(
+                        query=request.message,
+                        response=full_response,
+                        contexts=retrieved_contexts,
+                    )
+                    eval_data = evaluation.model_dump(mode="json")
+                    yield f"data: {json.dumps({'type': 'evaluation', 'evaluation': eval_data})}\n\n"
+                except Exception as eval_exc:
+                    logger.warning("Stream evaluation failed (non-blocking): %s", eval_exc)
+
                 yield f"data: {json.dumps({'type': 'end'})}\n\n"
 
             except Exception as exc:
@@ -478,6 +519,30 @@ async def search_hybrid(request: SearchRequest):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# ---------------------------------------------------------------------------
+# Evaluation endpoint
+# ---------------------------------------------------------------------------
+
+@app.post("/evaluate", response_model=EvaluationResult)
+async def evaluate_response(request: EvaluationRequest):
+    """Standalone RAG evaluation endpoint.
+
+    Evaluate any query-response-contexts triplet for confidence,
+    faithfulness, relevance, and hallucination risk.
+    """
+    try:
+        evaluator = get_evaluator()
+        result = await evaluator.evaluate(
+            query=request.query,
+            response=request.response,
+            contexts=request.contexts,
+        )
+        return result
+    except Exception as exc:
+        logger.error("Evaluation failed: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/documents")
 async def list_documents_endpoint(limit: int = 20, offset: int = 0):
     """List ingested documents."""
@@ -523,6 +588,36 @@ async def global_exception_handler(request: Request, exc: Exception):
         error_type=type(exc).__name__,
         request_id=str(uuid.uuid4()),
     )
+
+
+# ---------------------------------------------------------------------------
+# Frontend route
+# ---------------------------------------------------------------------------
+
+@app.get("/", include_in_schema=False)
+@app.get("/index.html", include_in_schema=False)
+async def serve_frontend():
+    """Serve the web UI."""
+    index_path = _frontend_dir / "index.html"
+    if index_path.is_file():
+        return FileResponse(str(index_path), media_type="text/html")
+    raise HTTPException(status_code=404, detail="Frontend not found")
+
+
+@app.get("/style.css", include_in_schema=False)
+async def serve_style():
+    style_path = _frontend_dir / "style.css"
+    if style_path.is_file():
+        return FileResponse(str(style_path), media_type="text/css")
+    raise HTTPException(status_code=404, detail="Style not found")
+
+
+@app.get("/app.js", include_in_schema=False)
+async def serve_script():
+    script_path = _frontend_dir / "app.js"
+    if script_path.is_file():
+        return FileResponse(str(script_path), media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="Script not found")
 
 
 # ---------------------------------------------------------------------------

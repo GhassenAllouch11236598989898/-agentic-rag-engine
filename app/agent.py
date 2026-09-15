@@ -41,6 +41,7 @@ class AgentDependencies:
     session_id: str
     user_id: Optional[str] = None
     search_preferences: Dict[str, Any] = None
+    retrieved_chunks: List[Dict[str, Any]] = None
 
     def __post_init__(self):
         if self.search_preferences is None:
@@ -48,6 +49,8 @@ class AgentDependencies:
                 "use_vector": True,
                 "default_limit": 10,
             }
+        if self.retrieved_chunks is None:
+            self.retrieved_chunks = []
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +91,7 @@ async def vector_search(
     input_data = VectorSearchInput(query=query, limit=limit)
     results = await vector_search_tool(input_data)
 
-    return [
+    formatted = [
         {
             "content": r.content,
             "score": r.score,
@@ -98,6 +101,9 @@ async def vector_search(
         }
         for r in results
     ]
+    # Track retrieved chunks for evaluation
+    ctx.deps.retrieved_chunks.extend(formatted)
+    return formatted
 
 
 @rag_agent.tool
@@ -127,7 +133,7 @@ async def hybrid_search(
     )
     results = await hybrid_search_tool(input_data)
 
-    return [
+    formatted = [
         {
             "content": r.content,
             "score": r.score,
@@ -137,6 +143,9 @@ async def hybrid_search(
         }
         for r in results
     ]
+    # Track retrieved chunks for evaluation
+    ctx.deps.retrieved_chunks.extend(formatted)
+    return formatted
 
 
 @rag_agent.tool

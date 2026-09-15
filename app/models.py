@@ -97,6 +97,54 @@ class ChatResponse(BaseModel):
     sources: List[DocumentMetadata] = Field(default_factory=list)
     tools_used: List[ToolCall] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
+    evaluation: Optional["EvaluationResult"] = Field(None, description="RAG evaluation metrics")
+
+
+# ---------------------------------------------------------------------------
+# RAG Evaluation models (RAG Triad + Semantic Alignment)
+# ---------------------------------------------------------------------------
+
+class ClaimVerification(BaseModel):
+    """Verification result for a single atomic claim extracted from the response."""
+    claim: str = Field(..., description="The extracted atomic claim")
+    status: Literal["supported", "partially_supported", "unsupported"] = Field(
+        ..., description="Whether the claim is grounded in the retrieved context"
+    )
+    supporting_chunk_index: Optional[int] = Field(
+        None, description="Index of the context chunk that supports this claim"
+    )
+    reasoning: str = Field("", description="Brief justification for the status")
+
+
+class RAGMetrics(BaseModel):
+    """Individual metric scores for RAG Triad evaluation."""
+    faithfulness: float = Field(..., ge=0.0, le=1.0, description="Groundedness of the answer in retrieved context (0–1)")
+    answer_relevance: float = Field(..., ge=0.0, le=1.0, description="How directly the answer addresses the query (0–1)")
+    context_relevance: float = Field(..., ge=0.0, le=1.0, description="Signal-to-noise ratio of retrieved chunks vs query (0–1)")
+    semantic_similarity: float = Field(..., ge=0.0, le=1.0, description="Cosine similarity between response and context embeddings (0–1)")
+
+
+class EvaluationResult(BaseModel):
+    """Complete evaluation result for a RAG response."""
+    confidence_score: float = Field(..., ge=0.0, le=100.0, description="Calibrated overall confidence (0–100)")
+    risk_level: Literal["low", "medium", "high"] = Field(..., description="Hallucination risk tier")
+    metrics: RAGMetrics = Field(..., description="Individual RAG Triad metric scores")
+    claims: List[ClaimVerification] = Field(default_factory=list, description="Claim-by-claim verification")
+    critique: str = Field("", description="Evaluator reasoning summary")
+    evaluated_at: datetime = Field(default_factory=datetime.now)
+    evaluation_time_ms: float = Field(0.0, description="Time taken for evaluation in ms")
+
+
+class EvaluationRequest(BaseModel):
+    """Request body for the standalone /evaluate endpoint."""
+    query: str = Field(..., description="The original user query")
+    response: str = Field(..., description="The generated response to evaluate")
+    contexts: List[str] = Field(default_factory=list, description="Retrieved context chunks")
+    session_id: Optional[str] = Field(None, description="Associated session ID")
+
+
+# Update forward reference for ChatResponse
+ChatResponse.model_rebuild()
 
 
 # ---------------------------------------------------------------------------

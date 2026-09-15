@@ -1,95 +1,140 @@
 <p align="center">
-  <h1 align="center">🚀 Agentic RAG Engine</h1>
+  <h1 align="center">⚡ Agentic RAG Engine</h1>
   <p align="center">
-    <strong>Enterprise-Grade Retrieval-Augmented Generation with Local LLM & Vector Store</strong>
+    <strong>Enterprise-Grade Retrieval-Augmented Generation with Autonomous Agents, Hybrid Search & Local LLMs</strong>
   </p>
   <p align="center">
     <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue?logo=python&logoColor=white" alt="Python" />
     <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
     <img src="https://img.shields.io/badge/Pydantic_AI-0.7+-E92063?logo=pydantic&logoColor=white" alt="Pydantic AI" />
     <img src="https://img.shields.io/badge/pgvector-PostgreSQL_17-336791?logo=postgresql&logoColor=white" alt="pgvector" />
+    <img src="https://img.shields.io/badge/Ollama-Local_Inference-black?logo=ollama&logoColor=white" alt="Ollama" />
+    <img src="https://img.shields.io/badge/Docling-PDF_Extraction-orange" alt="Docling" />
     <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
   </p>
 </p>
 
 ---
 
-A production-ready **Agentic RAG** system that combines an autonomous AI agent with hybrid vector search and document ingestion. Designed to run **fully locally** with Ollama and SentenceTransformers — no paid API keys required — with seamless fallback to OpenAI when needed.
+A production-ready **Agentic RAG** system that pairs an autonomous AI agent with hybrid vector search, multi-modal document ingestion, and built-in model evaluation. Designed to operate **100% locally and privately** with Ollama and SentenceTransformers — no paid API keys required — with seamless zero-downtime fallback to OpenAI when desired.
 
-## Architecture
+---
+
+## 📸 Interface Preview
+
+### 1. Agentic Chat & Grounded Retrieval Inspector
+Interact with your private knowledge base in real-time with step-by-step reasoning transparency, interactive source citations, and dynamic Reciprocal Rank Fusion (RRF) inspection.
+
+![Agentic Chat Interface](docs/screenshots/agentic_chat.png)
+
+### 2. Model Evaluation & Benchmark Dashboard
+Validate answer quality, reference alignment, context faithfulness, citation accuracy, and hallucination risk across multiple LLMs side-by-side.
+
+![Model Evaluation Dashboard](docs/screenshots/model_evaluation.png)
+
+---
+
+## 🏛️ System Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│                        Client / curl / UI                        │
-└────────────────────────────┬─────────────────────────────────────┘
-                             │  HTTP / SSE
-                             ▼
-┌──────────────────────────────────────────────────────────────────┐
-│                     FastAPI REST API (:8000)                     │
-│  ┌──────────┐  ┌───────────────┐  ┌───────────────────────────┐  │
-│  │  /chat    │  │ /chat/stream  │  │ /search/vector | /hybrid  │  │
-│  └────┬─────┘  └───────┬───────┘  └────────────┬──────────────┘  │
-│       └────────────┬────┘                       │                │
-│                    ▼                            │                │
-│  ┌─────────────────────────────┐                │                │
-│  │   Pydantic AI Agent         │ ◄──────────────┘                │
-│  │   (tool-augmented reasoning)│                                 │
-│  └──────────┬──────────────────┘                                 │
-│             │  Tools: vector_search, hybrid_search,              │
-│             │         get_document, list_documents               │
-└─────────────┼────────────────────────────────────────────────────┘
-              │
-     ┌────────┴────────┐
-     ▼                 ▼
-┌──────────┐    ┌──────────────┐
-│  LLM     │    │  Embeddings  │
-│ Provider │    │  Provider    │
-│          │    │              │
-│ • Ollama │    │ • Sentence   │
-│ • OpenAI │    │   Transformers│
-└──────────┘    │ • OpenAI     │
-                └──────┬───────┘
-                       │
-                       ▼
-          ┌────────────────────────┐
-          │  PostgreSQL + pgvector │
-          │  (vector(384) / 1536)  │
-          │                        │
-          │  • Cosine similarity   │
-          │  • Full-text search    │
-          │  • Hybrid ranking      │
-          └────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          Modern Web UI / Client                             │
+│       [Agentic Chat]    [Hybrid Search]    [Model Evaluation Dashboard]     │
+└──────────────────────────────────────┬──────────────────────────────────────┘
+                                       │  HTTP / Server-Sent Events (SSE)
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          FastAPI REST API (:8000)                           │
+│  ┌──────────────┐  ┌──────────────────┐  ┌─────────────┐  ┌──────────────┐  │
+│  │    /chat     │  │   /chat/stream   │  │  /evaluate  │  │ /search/*    │  │
+│  └──────┬───────┘  └────────┬─────────┘  └──────┬──────┘  └──────┬───────┘  │
+│         └───────────┬───────┘                   │                │          │
+│                     ▼                           │                │          │
+│  ┌───────────────────────────────────────┐      │                │          │
+│  │          Pydantic AI Agent            │ ◄────┼────────────────┘          │
+│  │   (autonomous tool selection & loop)  │      │                           │
+│  └──────────────────┬────────────────────┘      │                           │
+│                     │                           │                           │
+│         Tools: hybrid_search, vector_search,    │                           │
+│                list_documents, get_document     │                           │
+└─────────────────────┼───────────────────────────┼───────────────────────────┘
+                      │                           │
+            ┌─────────┴─────────┐        ┌────────┴────────┐
+            ▼                   ▼        ▼                 │
+     ┌─────────────┐     ┌──────────────────────┐          │
+     │ LLM Engine  │     │  Embedding Engine    │          │
+     │             │     │                      │          │
+     │  • Ollama   │     │ • Sentence-          │          │
+     │    (Llama3) │     │   Transformers       │          │
+     │  • OpenAI   │     │   (all-MiniLM-L6-v2) │          │
+     │    (GPT-4o) │     │ • OpenAI Embeddings  │          │
+     └─────────────┘     └──────────┬───────────┘          │
+                                    │                      │
+                                    ▼                      ▼
+                       ┌─────────────────────────────────────────┐
+                       │         PostgreSQL 17 + pgvector        │
+                       │          (HNSW / IVFFlat Index)         │
+                       │                                         │
+                       │  • Cosine Vector Similarity (Dense)     │
+                       │  • Full-Text Search tsvector (Sparse)   │
+                       │  • Reciprocal Rank Fusion (RRF)         │
+                       └─────────────────────────────────────────┘
 ```
 
-## Key Features
+---
+
+## ✨ Key Features
 
 | Feature | Description |
 |---|---|
-| 🤖 **Agentic Workflows** | Pydantic AI agent autonomously selects the right search tool per query |
-| 🏠 **Local-First LLM** | Ollama integration (Llama 3.1, Mistral, etc.) — no API keys needed |
-| 🔐 **OpenAI Fallback** | Seamless switch to GPT-4o-mini if `OPENAI_API_KEY` is provided |
-| 🔍 **Hybrid Search** | Combines vector cosine similarity with PostgreSQL full-text search |
-| ⚡ **Local Embeddings** | `all-MiniLM-L6-v2` via SentenceTransformers — fast and free |
-| 🌊 **Real-Time Streaming** | Server-Sent Events for live token-by-token responses |
-| 📄 **PDF Ingestion** | Docling-powered extraction: text, tables, images, OCR |
-| 💬 **Session Memory** | Conversation history with automatic context injection |
-| ⚡ **Native Execution** | High-performance direct Python execution with zero virtualization overhead |
+| 🖥️ **Modern Executive Web UI** | Clean, responsive interface featuring multi-tab views: Overview, Documents, Hybrid Search, Agentic Chat, and Model Evaluation. |
+| 🤖 **Autonomous Agentic Reasoning** | Pydantic AI-powered agent dynamically selects optimal retrieval tools based on query intent. |
+| 🔍 **Hybrid Search + RRF** | Merges dense vector embeddings with PostgreSQL sparse full-text search via Reciprocal Rank Fusion. |
+| 📊 **Built-in RAG Evaluation Suite** | Measure **Faithfulness**, **Answer Relevance**, **Citation Accuracy**, and **Hallucination Risk** directly via API and UI. |
+| 🏠 **Local-First & Privacy Compliant** | Powered entirely by local Ollama models (`llama3.1:8b`, `mistral`) and local embeddings (`all-MiniLM-L6-v2`). |
+| 🔐 **Zero-Downtime Cloud Fallback** | Seamlessly switch between local Ollama inference and OpenAI (`gpt-4o`, `gpt-4o-mini`). |
+| 🌊 **Real-Time Token Streaming** | Native Server-Sent Events (SSE) for live token generation and tool-execution step updates. |
+| 📄 **Enterprise PDF Parsing** | Docling-powered ingestion extracting tables, hierarchical text chunks, and metadata. |
+| 💾 **Persistent Session Memory** | Conversation history stored in PostgreSQL with dynamic context-window management. |
 
-## Quick Start
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
 - **Python 3.11** or **3.12**
-- **Ollama** (for local LLM inference) or an OpenAI API key
-- **PostgreSQL** with the `pgvector` extension enabled (local or managed cloud instance like Neon)
+- **Ollama** (for 100% private local inference) or an OpenAI API key
+- **PostgreSQL 17** with `pgvector` extension enabled (local Docker, Postgres native, or cloud services like Neon/Supabase)
 
 ---
 
-### 1. Configure Environment
+### 1. Clone & Configure Environment
 
 ```bash
+git clone https://github.com/GhassenAllouch11236598989898/-agentic-rag-engine.git
+cd -agentic-rag-engine
 cp .env.example .env
-# Edit .env with your PostgreSQL credentials and preferences
+```
+
+Edit `.env` with your PostgreSQL database credentials and preferences:
+
+```env
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=rag_db
+DB_USER=postgres
+DB_PASSWORD=your_password
+
+# LLM Provider: 'ollama' or 'openai'
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.1:8b
+
+# Embedding Provider: 'local' or 'openai'
+EMBEDDING_PROVIDER=local
+EMBEDDING_MODEL=all-MiniLM-L6-v2
+EMBEDDING_DIM=384
 ```
 
 ---
@@ -102,18 +147,18 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Start Ollama (Local LLM)
+### 3. Start Ollama (For Local Inference)
 
 ```bash
 ollama pull llama3.1:8b
-ollama run llama3.1:8b
+ollama serve
 ```
 
 ---
 
 ### 4. Ingest Documents
 
-Place your PDF files in the `documents/` folder, then run:
+Drop your PDF or text documents into the `documents/` folder, then run the ingestion pipeline:
 
 ```bash
 python -m app.ingestion.ingest --documents documents/
@@ -121,47 +166,52 @@ python -m app.ingestion.ingest --documents documents/
 
 ---
 
-### 5. Start the FastAPI Server
+### 5. Start the Server
 
 ```bash
 uvicorn app.api:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Access the interactive API documentation at: **[http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)**.
+- **Web Application UI:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
+- **Interactive Swagger Documentation:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- **ReDoc API Reference:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
 ---
 
-### 6. Start Chatting!
+## 📖 Web Interface Guide
+
+The web dashboard is served directly by FastAPI at `/`:
+
+- **Agentic Chat (`/` or `#chat`):** Chat directly with your documents. Watch the reasoning process bar (`Query analyzed` → `Hybrid search` → `Sources retrieved`), click interactive citation badges, and inspect retrieved passages in the side inspector.
+- **Model Evaluation (`#evaluation`):** Run benchmark test cases against ground truth reference answers. Inspect correctness, faithfulness, and citation support across different LLM backends.
+- **Hybrid Search Playground (`#search`):** Test vector similarity vs keyword search directly with adjustable weights.
+- **Documents Manager (`#documents`):** View indexed files, chunk counts, and upload new documents directly through the UI modal.
+
+---
+
+## 🔌 API Reference
+
+### Core Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/` | Serves the web application interface |
+| `GET` | `/health` | System health check (DB connectivity, providers) |
+| `POST` | `/chat` | Non-streaming chat with tool execution and automatic RAG evaluation |
+| `POST` | `/chat/stream` | Streaming chat via Server-Sent Events (SSE) with tool events |
+| `POST` | `/search/vector` | Standalone dense vector similarity search |
+| `POST` | `/search/hybrid` | Standalone hybrid search with Reciprocal Rank Fusion |
+| `POST` | `/evaluate` | Standalone evaluation endpoint for query-response-context triplets |
+| `GET` | `/documents` | List indexed documents and metadata |
+| `GET` | `/sessions/{id}` | Retrieve past session conversation history |
+
+### Example: Agentic Chat (cURL)
 
 ```bash
 curl -X POST http://127.0.0.1:8000/chat \
   -H "Content-Type: application/json" \
-  -d "{\"message\": \"What are the key findings in the uploaded documents?\"}"
-```
-
----
-
-## API Reference
-
-### Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/health` | System health check |
-| `POST` | `/chat` | Single chat message |
-| `POST` | `/chat/stream` | Streaming chat (SSE) |
-| `POST` | `/search/vector` | Vector similarity search |
-| `POST` | `/search/hybrid` | Hybrid search |
-| `GET` | `/documents` | List ingested documents |
-| `GET` | `/sessions/{id}` | Session history |
-
-### Example: Chat
-
-```bash
-curl -s -X POST http://127.0.0.1:8000/chat \
-  -H "Content-Type: application/json" \
   -d '{
-    "message": "Summarize the main topics from all documents",
+    "message": "How does hybrid retrieval improve search quality?",
     "search_type": "hybrid"
   }'
 ```
@@ -170,104 +220,81 @@ curl -s -X POST http://127.0.0.1:8000/chat \
 
 ```json
 {
-  "message": "Based on the documents in the knowledge base, the main topics are ...",
-  "session_id": "a1b2c3d4-...",
+  "message": "Hybrid retrieval combines semantic similarity with keyword matching. Reciprocal Rank Fusion merges both result lists...",
+  "session_id": "8f3b2a1c-...",
   "tools_used": [
     {
       "tool_name": "hybrid_search",
-      "args": {"query": "main topics summary", "limit": 10}
+      "args": {"query": "hybrid retrieval search quality", "limit": 5}
     }
   ],
-  "metadata": {"search_type": "hybrid"}
+  "evaluation": {
+    "faithfulness": 0.94,
+    "answer_relevance": 0.92,
+    "hallucination_risk": "low"
+  }
 }
 ```
 
-### Example: Streaming Chat
+### Example: Standalone Evaluation (cURL)
 
 ```bash
-curl -N -X POST http://127.0.0.1:8000/chat/stream \
-  -H "Content-Type: application/json" \
-  -d "{\"message\": \"Give a detailed explanation of the findings\"}"
-```
-
-### Example: Vector Search
-
-```bash
-curl -s -X POST http://127.0.0.1:8000/search/vector \
+curl -X POST http://127.0.0.1:8000/evaluate \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "machine learning techniques",
-    "limit": 5
+    "query": "What is Reciprocal Rank Fusion?",
+    "response": "RRF combines the ranked lists of multiple retrieval algorithms into a single unified ranking.",
+    "contexts": [
+      "Reciprocal Rank Fusion (RRF) is a method that combines multiple search result lists to produce a single ranking."
+    ]
   }'
 ```
 
 ---
 
-## Configuration
+## ⚙️ Configuration Reference
 
-All configuration is managed through environment variables (`.env` file):
+All settings can be customized in your `.env` file:
 
 | Variable | Default | Description |
 |---|---|---|
-| `LLM_PROVIDER` | `ollama` | `ollama` or `openai` |
-| `LLM_MODEL` | `llama3.1:8b` | Model name for Ollama |
+| `LLM_PROVIDER` | `ollama` | `ollama` for local inference or `openai` |
+| `LLM_MODEL` | `llama3.1:8b` | Ollama model name (e.g. `llama3.1:8b`, `mistral`) |
 | `EMBEDDING_PROVIDER` | `local` | `local` (SentenceTransformers) or `openai` |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | Local embedding model |
-| `EMBEDDING_DIM` | `384` | Must match model output dimension |
-| `OPENAI_API_KEY` | — | Required only when using OpenAI providers |
-| `APP_PORT` | `8000` | FastAPI port |
-| `DB_HOST` | `localhost` | PostgreSQL hostname |
-
-> **⚠️ Important:** The `EMBEDDING_DIM` value must match the dimension in `sql/schema.sql`. If you switch to OpenAI embeddings (`text-embedding-3-small` → 1536), update both the `.env` and the schema.
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|---|---|
-| **Agent Framework** | [Pydantic AI](https://ai.pydantic.dev/) |
-| **API** | [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn |
-| **LLM** | [Ollama](https://ollama.ai/) / OpenAI |
-| **Embeddings** | [SentenceTransformers](https://sbert.net/) / OpenAI |
-| **Vector DB** | PostgreSQL 17 + [pgvector](https://github.com/pgvector/pgvector) |
-| **PDF Processing** | [Docling](https://github.com/DS4SD/docling) |
-| **Text Splitting** | [LangChain](https://langchain.readthedocs.io/) |
+| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformer embedding model name |
+| `EMBEDDING_DIM` | `384` | Must match model vector output dimension |
+| `OPENAI_API_KEY` | — | Required only if `LLM_PROVIDER=openai` or `EMBEDDING_PROVIDER=openai` |
+| `DB_HOST` | `localhost` | PostgreSQL host |
+| `DB_PORT` | `5432` | PostgreSQL port |
+| `DB_NAME` | `rag_db` | Database name |
+| `DB_USER` | `postgres` | Database user |
+| `DB_PASSWORD` | `postgres` | Database password |
+| `APP_PORT` | `8000` | FastAPI server port |
 
 ---
 
-## Project Structure
+## 🧪 Testing
 
-```
-├── app/
-│   ├── __init__.py          # Package version
-│   ├── api.py               # FastAPI endpoints & lifespan
-│   ├── agent.py             # Pydantic AI agent + tools
-│   ├── models.py            # Pydantic v2 request/response models
-│   ├── prompts.py           # System prompt templates
-│   ├── providers.py         # Dual LLM/Embedding provider (Ollama/OpenAI)
-│   ├── tools.py             # Search & retrieval tool implementations
-│   ├── db_utils.py          # PostgreSQL connection pool & queries
-│   └── ingestion/
-│       ├── ingest.py        # Document ingestion pipeline
-│       ├── chunker.py       # Semantic & recursive text splitting
-│       └── extract_files.py # PDF extraction via Docling
-├── sql/
-│   └── schema.sql           # pgvector schema + search functions
-├── documents/               # Drop your PDFs here
-├── tests/                   # Test suite
-├── pyproject.toml            # Project metadata & dependencies
-└── .env.example             # Configuration template
-```
-
----
-
-## Running Tests
+Run the automated test suite:
 
 ```bash
 pytest
 ```
 
-## License
+---
 
-MIT
+## 🛠️ Tech Stack
+
+- **Agent Orchestration:** [Pydantic AI](https://ai.pydantic.dev/)
+- **API Framework:** [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn
+- **Vector Database:** [PostgreSQL 17](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector)
+- **Local LLM Engine:** [Ollama](https://ollama.ai/)
+- **Embeddings:** [SentenceTransformers](https://sbert.net/) (`all-MiniLM-L6-v2`)
+- **Document Extraction:** [Docling](https://github.com/DS4SD/docling)
+- **Frontend:** Vanilla HTML5, Modern CSS (Glassmorphism & Micro-animations), Responsive JavaScript (Zero heavy bundlers needed)
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
