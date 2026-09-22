@@ -1,300 +1,212 @@
-<p align="center">
-  <h1 align="center">⚡ Agentic RAG Engine</h1>
-  <p align="center">
-    <strong>Enterprise-Grade Retrieval-Augmented Generation with Autonomous Agents, Hybrid Search & Local LLMs</strong>
-  </p>
-  <p align="center">
-    <img src="https://img.shields.io/badge/python-3.11%20%7C%203.12-blue?logo=python&logoColor=white" alt="Python" />
-    <img src="https://img.shields.io/badge/FastAPI-0.115+-009688?logo=fastapi&logoColor=white" alt="FastAPI" />
-    <img src="https://img.shields.io/badge/Pydantic_AI-0.7+-E92063?logo=pydantic&logoColor=white" alt="Pydantic AI" />
-    <img src="https://img.shields.io/badge/pgvector-PostgreSQL_17-336791?logo=postgresql&logoColor=white" alt="pgvector" />
-    <img src="https://img.shields.io/badge/Ollama-Local_Inference-black?logo=ollama&logoColor=white" alt="Ollama" />
-    <img src="https://img.shields.io/badge/Docling-PDF_Extraction-orange" alt="Docling" />
-    <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
-  </p>
-</p>
+# Billing Copilot
 
----
+A billing support demo for subscription businesses, using the original blue-and-white interface: sidebar, chat bubbles, and retrieval inspector.
 
-A production-ready **Agentic RAG** system that pairs an autonomous AI agent with hybrid vector search, multi-modal document ingestion, and built-in model evaluation. Designed to operate **100% locally and privately** with Ollama and SentenceTransformers — no paid API keys required — with seamless zero-downtime fallback to OpenAI when desired.
+Agents ask about invoices, payment failures, subscription changes, and refunds. The app searches uploaded policies, prepares a draft with real source references, and routes account-specific questions to a billing specialist.
 
----
+## Run the working demo
 
-## 📸 Interface Preview
+Use Python 3.12. From this project folder in PowerShell:
 
-### 1. Agentic Chat & Grounded Retrieval Inspector
-Interact with your private knowledge base in real-time with step-by-step reasoning transparency, interactive source citations, and dynamic Reciprocal Rank Fusion (RRF) inspection.
-
-![Agentic Chat Interface](docs/screenshots/agentic_chat.png)
-
-### 2. Model Evaluation & Benchmark Dashboard
-Validate answer quality, reference alignment, context faithfulness, citation accuracy, and hallucination risk across multiple LLMs side-by-side.
-
-![Model Evaluation Dashboard](docs/screenshots/model_evaluation.png)
-
----
-
-## 🏛️ System Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          Modern Web UI / Client                             │
-│       [Agentic Chat]    [Hybrid Search]    [Model Evaluation Dashboard]     │
-└──────────────────────────────────────┬──────────────────────────────────────┘
-                                       │  HTTP / Server-Sent Events (SSE)
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          FastAPI REST API (:8000)                           │
-│  ┌──────────────┐  ┌──────────────────┐  ┌─────────────┐  ┌──────────────┐  │
-│  │    /chat     │  │   /chat/stream   │  │  /evaluate  │  │ /search/*    │  │
-│  └──────┬───────┘  └────────┬─────────┘  └──────┬──────┘  └──────┬───────┘  │
-│         └───────────┬───────┘                   │                │          │
-│                     ▼                           │                │          │
-│  ┌───────────────────────────────────────┐      │                │          │
-│  │          Pydantic AI Agent            │ ◄────┼────────────────┘          │
-│  │   (autonomous tool selection & loop)  │      │                           │
-│  └──────────────────┬────────────────────┘      │                           │
-│                     │                           │                           │
-│         Tools: hybrid_search, vector_search,    │                           │
-│                list_documents, get_document     │                           │
-└─────────────────────┼───────────────────────────┼───────────────────────────┘
-                      │                           │
-            ┌─────────┴─────────┐        ┌────────┴────────┐
-            ▼                   ▼        ▼                 │
-     ┌─────────────┐     ┌──────────────────────┐          │
-     │ LLM Engine  │     │  Embedding Engine    │          │
-     │             │     │                      │          │
-     │  • Ollama   │     │ • Sentence-          │          │
-     │    (Llama3) │     │   Transformers       │          │
-     │  • OpenAI   │     │   (all-MiniLM-L6-v2) │          │
-     │    (GPT-4o) │     │ • OpenAI Embeddings  │          │
-     └─────────────┘     └──────────┬───────────┘          │
-                                    │                      │
-                                    ▼                      ▼
-                       ┌─────────────────────────────────────────┐
-                       │         PostgreSQL 17 + pgvector        │
-                       │          (HNSW / IVFFlat Index)         │
-                       │                                         │
-                       │  • Cosine Vector Similarity (Dense)     │
-                       │  • Full-Text Search tsvector (Sparse)   │
-                       │  • Reciprocal Rank Fusion (RRF)         │
-                       └─────────────────────────────────────────┘
+```powershell
+python -m venv .venv
+./.venv/Scripts/python.exe -m pip install -r requirements-demo.txt
+./start-demo.ps1
 ```
 
+Open **http://127.0.0.1:8000/** and keep the terminal open. To use another port: `./start-demo.ps1 -Port 8001`.
+
+The demo needs no API key, model download, Docker, or PostgreSQL. Five fictional Northstar Cloud billing policies are indexed automatically on first startup. Documents, conversations, and feedback persist in `.data/billing-demo.sqlite3`.
+
+## End-to-End Demo Walkthrough
+
+Billing Copilot provides a complete end-to-end evidence-backed workflow for customer billing support teams. This walkthrough covers both the **interactive Web UI** and the **underlying REST API**.
+
+```
+┌─────────────────┐       ┌──────────────────────┐       ┌──────────────────────┐
+│ Customer Ticket │ ───>  │  Billing Assistant   │ ───>  │  Source Evidence     │
+│ Selection/Query │       │  (Citations & Draft) │       │  (Drawer & Document) │
+└─────────────────┘       └──────────────────────┘       └──────────────────────┘
+         │                           │                              │
+         ▼                           ▼                              ▼
+┌─────────────────┐       ┌──────────────────────┐       ┌──────────────────────┐
+│ Safe Escalation │       │ Quality Benchmarks   │       │ Document Ingestion   │
+│ Trigger Guard   │       │ (Automated Audits)   │       │ (Instant Indexing)   │
+└─────────────────┘       └──────────────────────┘       └──────────────────────┘
+```
+
+### 1. Interactive Web UI Flow
+
+1. **Policy-Grounded Drafting with Inline Citations**:
+   - Navigate to the **Billing Assistant** tab (`#nav-chat`).
+   - Click any sample customer ticket (e.g., *"Switch from monthly to annual"* or *"A renewal payment failed"*), or type a custom question.
+   - The assistant performs hybrid retrieval across the indexed knowledge base and produces a concise draft containing bracketed citation tags (`[1]`, `[2]`).
+   - Click or hover on citations to immediately see the supporting excerpt.
+
+2. **Source Evidence & Original Document Inspector**:
+   - The right-side **Source Evidence** panel lists each retrieved source snippet, match rank, and source document name (e.g. `subscription-changes.md`, `payment-failures.md`).
+   - Click **Open original document** to view the unabridged policy text in a side-drawer and verify exact source wording.
+
+3. **Safe Escalation Guard for Account-Specific Inquiries**:
+   - Select the sample ticket: *"An account-specific billing question"* or ask *"What is the exact balance on invoice INV-2026-8841?"*.
+   - Because invoice balance lookups require live payment processor credentials (e.g. Stripe/accounting portal), the engine guards against hallucination.
+   - It flags `status: needs_escalation`, displays an amber escalation banner, and prepares a routed transfer note for human billing specialists.
+
+4. **Dynamic Knowledge Ingestion**:
+   - Switch to the **Documents** tab (`#nav-documents`).
+   - Upload any `.pdf`, `.md`, or `.txt` policy file via drag-and-drop or file selector.
+   - The document is validated, extracted, and indexed instantly without restarting the server.
+   - Queries regarding newly added terms are immediately retrievable.
+
+5. **Automated Quality & Audit Checks**:
+   - Switch to the **Quality Checks** tab (`#nav-evaluation`).
+   - Click **Run Quality Checks**.
+   - The suite runs 6 automated billing test scenarios, validating retrieval accuracy, behavior compliance (draft vs. escalation), citation validity, and response latency.
+
+6. **Capacity Planning Calculator**:
+   - Open the **Overview** tab (`#nav-overview`).
+   - Modify ticket volume, average resolution time, and expected deflection rates to interactively calculate monthly capacity hours returned to your team.
+
 ---
 
-## ✨ Key Features
+### 2. End-to-End API Walkthrough (cURL Examples)
 
-| Feature | Description |
-|---|---|
-| 🖥️ **Modern Executive Web UI** | Clean, responsive interface featuring multi-tab views: Overview, Documents, Hybrid Search, Agentic Chat, and Model Evaluation. |
-| 🤖 **Autonomous Agentic Reasoning** | Pydantic AI-powered agent dynamically selects optimal retrieval tools based on query intent. |
-| 🔍 **Hybrid Search + RRF** | Merges dense vector embeddings with PostgreSQL sparse full-text search via Reciprocal Rank Fusion. |
-| 📊 **Built-in RAG Evaluation Suite** | Measure **Faithfulness**, **Answer Relevance**, **Citation Accuracy**, and **Hallucination Risk** directly via API and UI. |
-| 🏠 **Local-First & Privacy Compliant** | Powered entirely by local Ollama models (`llama3.1:8b`, `mistral`) and local embeddings (`all-MiniLM-L6-v2`). |
-| 🔐 **Zero-Downtime Cloud Fallback** | Seamlessly switch between local Ollama inference and OpenAI (`gpt-4o`, `gpt-4o-mini`). |
-| 🌊 **Real-Time Token Streaming** | Native Server-Sent Events (SSE) for live token generation and tool-execution step updates. |
-| 📄 **Enterprise PDF Parsing** | Docling-powered ingestion extracting tables, hierarchical text chunks, and metadata. |
-| 💾 **Persistent Session Memory** | Conversation history stored in PostgreSQL with dynamic context-window management. |
+The backend provides a clean REST and SSE API for integrations.
 
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-
-- **Python 3.11** or **3.12**
-- **Ollama** (for 100% private local inference) or an OpenAI API key
-- **PostgreSQL 17** with `pgvector` extension enabled (local Docker, Postgres native, or cloud services like Neon/Supabase)
-
----
-
-### 1. Clone & Configure Environment
-
+#### Health Check
 ```bash
-git clone https://github.com/GhassenAllouch11236598989898/-agentic-rag-engine.git
-cd -agentic-rag-engine
-cp .env.example .env
+curl -X GET http://127.0.0.1:8000/health
+```
+```json
+{
+  "status": "healthy",
+  "mode": "demo",
+  "checks": { "database": true },
+  "note": "Provider inference is checked when generating a draft."
+}
 ```
 
-Edit `.env` with your PostgreSQL database credentials and preferences:
-
-```env
-# Database
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=rag_db
-DB_USER=postgres
-DB_PASSWORD=your_password
-
-# LLM Provider: 'ollama' or 'openai'
-LLM_PROVIDER=ollama
-LLM_MODEL=llama3.1:8b
-
-# Embedding Provider: 'local' or 'openai'
-EMBEDDING_PROVIDER=local
-EMBEDDING_MODEL=all-MiniLM-L6-v2
-EMBEDDING_DIM=384
-```
-
----
-
-### 2. Install Dependencies
-
+#### Retrieve Evidence & Draft Reply
 ```bash
-pip install -r requirements.txt
-```
-
----
-
-### 3. Start Ollama (For Local Inference)
-
-```bash
-ollama pull llama3.1:8b
-ollama serve
-```
-
----
-
-### 4. Ingest Documents
-
-Drop your PDF or text documents into the `documents/` folder, then run the ingestion pipeline:
-
-```bash
-python -m app.ingestion.ingest --documents documents/
-```
-
----
-
-### 5. Start the Server
-
-```bash
-uvicorn app.api:app --reload --host 127.0.0.1 --port 8000
-```
-
-- **Web Application UI:** [http://127.0.0.1:8000](http://127.0.0.1:8000)
-- **Interactive Swagger Documentation:** [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
-- **ReDoc API Reference:** [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
-
----
-
-## 📖 Web Interface Guide
-
-The web dashboard is served directly by FastAPI at `/`:
-
-- **Agentic Chat (`/` or `#chat`):** Chat directly with your documents. Watch the reasoning process bar (`Query analyzed` → `Hybrid search` → `Sources retrieved`), click interactive citation badges, and inspect retrieved passages in the side inspector.
-- **Model Evaluation (`#evaluation`):** Run benchmark test cases against ground truth reference answers. Inspect correctness, faithfulness, and citation support across different LLM backends.
-- **Hybrid Search Playground (`#search`):** Test vector similarity vs keyword search directly with adjustable weights.
-- **Documents Manager (`#documents`):** View indexed files, chunk counts, and upload new documents directly through the UI modal.
-
----
-
-## 🔌 API Reference
-
-### Core Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/` | Serves the web application interface |
-| `GET` | `/health` | System health check (DB connectivity, providers) |
-| `POST` | `/chat` | Non-streaming chat with tool execution and automatic RAG evaluation |
-| `POST` | `/chat/stream` | Streaming chat via Server-Sent Events (SSE) with tool events |
-| `POST` | `/search/vector` | Standalone dense vector similarity search |
-| `POST` | `/search/hybrid` | Standalone hybrid search with Reciprocal Rank Fusion |
-| `POST` | `/evaluate` | Standalone evaluation endpoint for query-response-context triplets |
-| `GET` | `/documents` | List indexed documents and metadata |
-| `GET` | `/sessions/{id}` | Retrieve past session conversation history |
-
-### Example: Agentic Chat (cURL)
-
-```bash
-curl -X POST http://127.0.0.1:8000/chat \
+curl -X POST http://127.0.0.1:8000/api/chat \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "How does hybrid retrieval improve search quality?",
+    "message": "Will an annual upgrade credit our unused monthly payment?",
+    "search_type": "hybrid"
+  }'
+```
+```json
+{
+  "draft_id": "draft_abc123",
+  "session_id": "sess_xyz789",
+  "status": "draft",
+  "message": "When switching from monthly to annual billing, any unused time on the current monthly subscription is credited toward the annual plan [1].",
+  "sources": [
+    {
+      "id": 1,
+      "title": "Subscription Changes",
+      "text": "When switching from monthly to annual billing, any unused time...",
+      "page": null
+    }
+  ],
+  "citation_check": {
+    "references_valid": true,
+    "referenced_ids": [1]
+  },
+  "elapsed_ms": 18
+}
+```
+
+#### Real-Time SSE Stream
+```bash
+curl -N -X POST http://127.0.0.1:8000/api/chat/stream \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "When does a failed renewal retry?",
     "search_type": "hybrid"
   }'
 ```
 
-**Response:**
-
-```json
-{
-  "message": "Hybrid retrieval combines semantic similarity with keyword matching. Reciprocal Rank Fusion merges both result lists...",
-  "session_id": "8f3b2a1c-...",
-  "tools_used": [
-    {
-      "tool_name": "hybrid_search",
-      "args": {"query": "hybrid retrieval search quality", "limit": 5}
-    }
-  ],
-  "evaluation": {
-    "faithfulness": 0.94,
-    "answer_relevance": 0.92,
-    "hallucination_risk": "low"
-  }
-}
-```
-
-### Example: Standalone Evaluation (cURL)
-
+#### Direct Policy Search (Hybrid / Vector)
 ```bash
-curl -X POST http://127.0.0.1:8000/evaluate \
+curl -X POST http://127.0.0.1:8000/api/search/hybrid \
   -H "Content-Type: application/json" \
   -d '{
-    "query": "What is Reciprocal Rank Fusion?",
-    "response": "RRF combines the ranked lists of multiple retrieval algorithms into a single unified ranking.",
-    "contexts": [
-      "Reciprocal Rank Fusion (RRF) is a method that combines multiple search result lists to produce a single ranking."
-    ]
+    "query": "grace period for failed payments",
+    "limit": 3
   }'
 ```
 
----
-
-## ⚙️ Configuration Reference
-
-All settings can be customized in your `.env` file:
-
-| Variable | Default | Description |
-|---|---|---|
-| `LLM_PROVIDER` | `ollama` | `ollama` for local inference or `openai` |
-| `LLM_MODEL` | `llama3.1:8b` | Ollama model name (e.g. `llama3.1:8b`, `mistral`) |
-| `EMBEDDING_PROVIDER` | `local` | `local` (SentenceTransformers) or `openai` |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` | SentenceTransformer embedding model name |
-| `EMBEDDING_DIM` | `384` | Must match model vector output dimension |
-| `OPENAI_API_KEY` | — | Required only if `LLM_PROVIDER=openai` or `EMBEDDING_PROVIDER=openai` |
-| `DB_HOST` | `localhost` | PostgreSQL host |
-| `DB_PORT` | `5432` | PostgreSQL port |
-| `DB_NAME` | `rag_db` | Database name |
-| `DB_USER` | `postgres` | Database user |
-| `DB_PASSWORD` | `postgres` | Database password |
-| `APP_PORT` | `8000` | FastAPI server port |
-
----
-
-## 🧪 Testing
-
-Run the automated test suite:
-
+#### Upload New Policy Document
 ```bash
-pytest
+curl -X POST http://127.0.0.1:8000/api/documents \
+  -F "file=@sample_data/billing/refund-policy.md"
 ```
 
----
+#### Run Automated Quality Benchmark
+```bash
+curl -X POST http://127.0.0.1:8000/api/benchmark/run
+```
 
-## 🛠️ Tech Stack
+#### Submit Reviewer Feedback
+```bash
+curl -X POST http://127.0.0.1:8000/api/drafts/draft_abc123/feedback \
+  -H "Content-Type: application/json" \
+  -d '{"value": "helpful"}'
+```
 
-- **Agent Orchestration:** [Pydantic AI](https://ai.pydantic.dev/)
-- **API Framework:** [FastAPI](https://fastapi.tiangolo.com/) + Uvicorn
-- **Vector Database:** [PostgreSQL 17](https://www.postgresql.org/) + [pgvector](https://github.com/pgvector/pgvector)
-- **Local LLM Engine:** [Ollama](https://ollama.ai/)
-- **Embeddings:** [SentenceTransformers](https://sbert.net/) (`all-MiniLM-L6-v2`)
-- **Document Extraction:** [Docling](https://github.com/DS4SD/docling)
-- **Frontend:** Vanilla HTML5, Modern CSS (Glassmorphism & Micro-animations), Responsive JavaScript (Zero heavy bundlers needed)
+## What works
 
----
+- Billing assistant with six sample customer questions and follow-up context.
+- Real policy retrieval, inline citations, original-document viewer, editable replies, and feedback.
+- PDF, Markdown, and text uploads with validation, duplicate detection, and PDF page references.
+- Six repeatable billing checks that report actual outcomes and retrieved evidence.
+- A planning calculator with editable assumptions.
+- Connected mode with PostgreSQL, pgvector, reciprocal rank fusion, and a configured AI provider.
+- Access-key roles, conversation ownership, upload limits, and explicit service errors.
 
-## 📄 License
+**Demo replies are extracts from policy text**, clearly labeled in the interface. Connected mode uses an LLM. Citation checks validate reference IDs; they do not establish factual accuracy. All replies require human review.
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This app does not connect to Stripe or accounting software, charge cards, issue refunds, change subscriptions, or send customer messages. Account balances and transaction status require an authorized billing-system lookup.
+
+## Present it to a client
+
+Start with **Billing Assistant**, inspect a cited policy, upload a sample policy, and run **Quality Checks**. See [the five-minute client demo](docs/CLIENT_DEMO.md) for a walkthrough and a realistic paid-pilot scope.
+
+## Connect a client workspace
+
+1. Install `requirements-live.txt`.
+2. Copy `.env.example` to `.env` and configure `APP_MODE=live`, workspace access keys, PostgreSQL, and your model providers.
+3. Provide PostgreSQL with the pgvector extension. Startup initializes a new schema or applies the retrieval migration to an existing schema without dropping data tables.
+4. Match the embedding model's output to the supplied **384-dimensional** schema. Local SentenceTransformer embeddings require a separate `pip install sentence-transformers`. Ollama requires a running Ollama server and the selected models.
+5. Run `./.venv/Scripts/python.exe -m uvicorn app.api:app --host 127.0.0.1 --port 8000`.
+6. Enter your configured workspace key in **Settings**, then upload the client's approved policies.
+
+Live mode starts without fictional knowledge. To explicitly load the fictional billing examples into a test live database, run `./.venv/Scripts/python.exe -m scripts.seed_billing`.
+
+Each deployment is one company's shared knowledge workspace. Review [operations and deployment notes](docs/OPERATIONS.md) for storage, access, backups, provider disclosure, and verification.
+
+## Test
+
+```powershell
+./.venv/Scripts/python.exe -m pip install -r requirements-dev.txt
+./.venv/Scripts/python.exe -m pytest --basetemp=.artifacts/test-run
+./.venv/Scripts/python.exe -m pip check
+```
+
+Tests cover uploads, persistence, source provenance, recent conversation history, access roles, session ownership, billing escalation, benchmark results, provider failures, and embedding dimensions. Connected answer tests use a deterministic test model. A real PostgreSQL/model smoke test is required before a connected client deployment.
+
+## Project map
+
+| Path | Purpose |
+|---|---|
+| `app/server.py` | FastAPI routes, startup, uploads, authentication middleware |
+| `app/support.py` | Retrieval, reply generation, citation checks, escalation |
+| `app/workspace.py` | SQLite documents, conversations, drafts, feedback |
+| `app/ingestion/live.py` | Connected document indexing |
+| `frontend/` | Original-style billing interface |
+| `sample_data/billing/` | Fictional demo policies |
+| `sql/002_retrieval.sql` | Reciprocal rank fusion migration |
+| `tests/` | Automated checks |
+
+The current entry point is `app.api:app`. Older research modules remain in the repository but are not used by the billing web application.

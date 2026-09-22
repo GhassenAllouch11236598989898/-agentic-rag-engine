@@ -99,7 +99,7 @@ async def vector_search_tool(input_data: VectorSearchInput) -> List[ChunkResult]
         ]
     except Exception as exc:
         logger.error("Vector search failed: %s", exc)
-        return []
+        raise
 
 
 async def hybrid_search_tool(input_data: HybridSearchInput) -> List[ChunkResult]:
@@ -127,7 +127,7 @@ async def hybrid_search_tool(input_data: HybridSearchInput) -> List[ChunkResult]
         ]
     except Exception as exc:
         logger.error("Hybrid search failed: %s", exc)
-        return []
+        raise
 
 
 async def get_document_tool(
@@ -142,7 +142,7 @@ async def get_document_tool(
         return document
     except Exception as exc:
         logger.error("Document retrieval failed: %s", exc)
-        return None
+        raise
 
 
 async def list_documents_tool(
@@ -167,4 +167,4 @@ async def list_documents_tool(
         ]
     except Exception as exc:
         logger.error("Document listing failed: %s", exc)
-        return []
+        raise

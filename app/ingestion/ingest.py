@@ -420,5 +420,72 @@ async def main():
         await pipeline.close()
 
 
+async def ingest_single_file(file_path: str, filename: Optional[str] = None) -> IngestionResult:
+    """Ingest any file (PDF, code, markdown, text) into the vector database."""
+    from .extract_files import extract_file_content
+    from .chunker import ChunkingConfig, DocumentChunk, create_chunker
+
+    start_time = datetime.now()
+    path = Path(file_path)
+    display_title = filename or path.name
+
+    document_content, document_metadata = extract_file_content(str(path))
+    document_metadata["title"] = display_title
+
+    # For code/text, recursive splitting works best and prevents huge chunks
+    chunker = create_chunker(
+        ChunkingConfig(
+            chunk_size=700,
+            chunk_overlap=120,
+            max_chunk_size=1200,
+            use_semantic_splitting=False,
+        )
+    )
+
+    chunks = chunker.chunk_content(
+        content=document_content,
+        title=display_title,
+        source=display_title,
+        metadata=document_metadata,
+    )
+
+    if not chunks and document_content.strip():
+        chunks = [
+            DocumentChunk(
+                content=document_content[:1500],
+                index=0,
+                start_char=0,
+                end_char=min(len(document_content), 1500),
+                metadata=document_metadata,
+                token_count=len(document_content[:1500]) // 4,
+            )
+        ]
+
+    # Generate embeddings
+    provider = get_embedding_provider()
+    texts = [c.content for c in chunks]
+    vectors = await provider.embed_batch(texts)
+    for chunk, vec in zip(chunks, vectors):
+        chunk.embedding = vec
+
+    # Save to PostgreSQL
+    pipeline = DocumentIngestionPipeline(IngestionConfig())
+    document_id = await pipeline._save_to_postgres(
+        title=display_title,
+        source=display_title,
+        content=document_content,
+        chunks=chunks,
+        metadata=document_metadata,
+    )
+
+    elapsed = (datetime.now() - start_time).total_seconds() * 1000
+    return IngestionResult(
+        document_id=document_id,
+        title=display_title,
+        chunks_created=len(chunks),
+        processing_time_ms=elapsed,
+    )
+
+
 if __name__ == "__main__":
     asyncio.run(main())

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "BILL-1042",
+    "subject": "Switch from monthly to annual",
+    "message": "Will an annual upgrade credit our unused monthly payment, and how do we change plans?"
+  },
+  {
+    "id": "BILL-1043",
+    "subject": "Correct an issued invoice",
+    "message": "How can we correct the company name on an invoice that has already been issued?"
+  },
+  {
+    "id": "BILL-1044",
+    "subject": "A renewal payment failed",
+    "message": "Our subscription payment failed. When will it retry and how long is the payment grace period?"
+  },
+  {
+    "id": "BILL-1045",
+    "subject": "Request an annual refund",
+    "message": "We bought our first annual subscription 8 days ago. Can we request a refund, and what does the billing team need?"
+  },
+  {
+    "id": "BILL-1046",
+    "subject": "Cancel a subscription",
+    "message": "How do we cancel renewal, and will we keep access until the paid period ends?"
+  },
+  {
+    "id": "BILL-1047",
+    "subject": "An account-specific billing question",
+    "message": "What is the exact outstanding balance on invoice INV-2026-8841?"
+  }
+]

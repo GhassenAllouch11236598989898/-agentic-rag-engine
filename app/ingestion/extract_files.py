@@ -91,3 +91,56 @@ class PDFExtractor:
 def create_pdf_extractor(config: PDFExtractionConfig = None) -> PDFExtractor:
     """Factory function for ``PDFExtractor``."""
     return PDFExtractor(config)
+
+
+def extract_file_content(file_path: str) -> Tuple[str, Dict[str, Any]]:
+    """
+    Extract content from any file: PDF, source code, Markdown, TXT, JSON, etc.
+
+    Args:
+        file_path: Filesystem path to the file.
+
+    Returns:
+        A tuple of (content_text, metadata_dict).
+    """
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"File not found: {path}")
+
+    ext = path.suffix.lower()
+
+    # If it's a PDF, use the dedicated PDF extractor
+    if ext == ".pdf":
+        extractor = create_pdf_extractor()
+        return extractor.extract_pdf_content(str(path))
+
+    # Otherwise read as text/code
+    start_time = time.time()
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            content = f.read()
+    except UnicodeDecodeError:
+        with open(path, "r", encoding="latin-1", errors="replace") as f:
+            content = f.read()
+
+    elapsed = time.time() - start_time
+    code_extensions = {
+        ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".c", ".cpp",
+        ".h", ".hpp", ".cs", ".go", ".rs", ".php", ".rb", ".sql",
+        ".sh", ".bash", ".json", ".yaml", ".yml", ".html", ".css",
+        ".xml", ".toml", ".ini", ".env", ".vue", ".swift", ".kt",
+    }
+    is_code = ext in code_extensions
+
+    metadata = {
+        "source": str(path),
+        "title": path.name,
+        "processing_time": round(elapsed, 2),
+        "pages": 1,
+        "extraction_method": "direct_text",
+        "content_type": "code" if is_code else "text",
+        "file_extension": ext,
+        "char_count": len(content),
+    }
+    return content, metadata
+

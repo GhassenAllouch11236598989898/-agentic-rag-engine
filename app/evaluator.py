@@ -129,13 +129,11 @@ class RAGEvaluator:
 
         # Handle LLM judge failures gracefully
         if isinstance(llm_result, Exception):
-            logger.warning("LLM judge failed: %s — using semantic-only fallback", llm_result)
-            llm_result = self._fallback_llm_result(semantic_score if not isinstance(semantic_score, Exception) else 0.5)
+            raise RuntimeError('Evaluation unavailable: the judge failed.') from llm_result
 
         # Handle semantic failures gracefully
         if isinstance(semantic_score, Exception):
-            logger.warning("Semantic alignment failed: %s — using default 0.5", semantic_score)
-            semantic_score = 0.5
+            raise RuntimeError('Evaluation unavailable: embedding comparison failed.') from semantic_score
 
         # Assemble metrics
         metrics = RAGMetrics(
@@ -263,14 +261,8 @@ class RAGEvaluator:
         }
 
     def _fallback_llm_result(self, base_score: float = 0.5) -> Dict[str, Any]:
-        """Return a neutral evaluation when the LLM judge fails."""
-        return {
-            "faithfulness": base_score,
-            "answer_relevance": base_score,
-            "context_relevance": base_score,
-            "claims": [],
-            "critique": "LLM evaluation unavailable — using semantic-only assessment.",
-        }
+        """Never manufacture a successful evaluation when parsing fails."""
+        raise ValueError('Evaluation unavailable: the judge returned invalid JSON.')
 
     # ------------------------------------------------------------------
     # Semantic Embedding Alignment

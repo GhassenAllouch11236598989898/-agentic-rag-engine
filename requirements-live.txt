@@ -1,0 +1,9 @@
+-r requirements-demo.txt
+asyncpg==0.31.0
+pydantic-ai-slim[openai]==2.46.0
+openai==3.16.2
+numpy==2.5.3
+httpx==0.28.1
+# Local SentenceTransformer embeddings are optional; install separately if selected:
+# pip install sentence-transformers
+# Ollama embeddings and OpenAI embeddings do not require that package.

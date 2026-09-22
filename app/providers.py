@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 # LLM Provider (Local Ollama by default)
 # ---------------------------------------------------------------------------
 
+
 def get_llm_model(model_override: Optional[str] = None) -> OpenAIChatModel:
     """
     Build an LLM model instance based on the configured provider.
@@ -52,11 +53,27 @@ def get_llm_model(model_override: Optional[str] = None) -> OpenAIChatModel:
             logger.info("LLM provider: OpenAI (%s)", model_name)
             return OpenAIChatModel(model_name, provider=provider)
         else:
-            logger.warning(
-                "LLM_PROVIDER=openai specified but OPENAI_API_KEY is missing. "
-                "Falling back to local Ollama provider."
-            )
+            raise ValueError("OPENAI_API_KEY is required for the selected provider.")
 
+    if provider_name == "groq":
+        api_key = os.getenv("GROQ_API_KEY", "").strip()
+        if api_key:
+            model_name = (
+                model_override
+                or os.getenv("GROQ_MODEL")
+                or os.getenv("LLM_MODEL", "qwen/qwen3.8-27b")
+            )
+            provider = OpenAIProvider(
+                api_key=api_key,
+                base_url="https://api.groq.com/openai/v1",
+            )
+            logger.info("LLM provider: Groq (%s)", model_name)
+            return OpenAIChatModel(model_name, provider=provider)
+        else:
+            raise ValueError("GROQ_API_KEY is required for the selected provider.")
+
+    if provider_name != "ollama":
+        raise ValueError("Unsupported LLM_PROVIDER. Use ollama, openai, or groq.")
     # Local Ollama setup (default)
     base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
     model_name = model_override or os.getenv("LLM_MODEL", "llama3.1:8b")
@@ -74,22 +91,25 @@ def get_llm_model(model_override: Optional[str] = None) -> OpenAIChatModel:
 # Embedding Provider (Local SentenceTransformers or Ollama)
 # ---------------------------------------------------------------------------
 
+
 class EmbeddingProvider:
     """Unified embedding interface optimized for local execution."""
 
     def __init__(self):
         self._provider = os.getenv("EMBEDDING_PROVIDER", "local").strip().lower()
-        self._ollama_base_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").rstrip("/")
+        self._ollama_base_url = os.getenv(
+            "OLLAMA_BASE_URL", "http://localhost:11434"
+        ).rstrip("/")
 
         # Fallback check if OpenAI requested without key
         if self._provider == "openai":
             api_key = os.getenv("OPENAI_API_KEY", "").strip()
             if not api_key:
-                logger.warning(
-                    "EMBEDDING_PROVIDER=openai specified but OPENAI_API_KEY is missing. "
-                    "Falling back to local SentenceTransformers."
+                raise ValueError(
+                    "OPENAI_API_KEY is required for OpenAI embeddings. Provider changes require re-indexing."
                 )
-                self._provider = "local"
+        if self._provider not in {"local", "ollama", "openai"}:
+            raise ValueError("Unsupported EMBEDDING_PROVIDER.")
 
         self._model_name = self._resolve_model_name()
         self._dim = int(os.getenv("EMBEDDING_DIM", "384"))
@@ -98,13 +118,20 @@ class EmbeddingProvider:
 
         if self._provider == "openai":
             import openai
+
             api_key = os.getenv("OPENAI_API_KEY", "").strip()
             self._openai_client = openai.AsyncOpenAI(api_key=api_key)
             logger.info("Embedding provider: OpenAI (%s)", self._model_name)
         elif self._provider == "ollama":
-            logger.info("Embedding provider: Local Ollama (%s @ %s)", self._model_name, self._ollama_base_url)
+            logger.info(
+                "Embedding provider: Local Ollama (%s @ %s)",
+                self._model_name,
+                self._ollama_base_url,
+            )
         else:
-            logger.info("Embedding provider: Local SentenceTransformer (%s)", self._model_name)
+            logger.info(
+                "Embedding provider: Local SentenceTransformer (%s)", self._model_name
+            )
 
     # -- public API ----------------------------------------------------------
 
@@ -119,22 +146,33 @@ class EmbeddingProvider:
     async def embed(self, text: str) -> List[float]:
         """Generate an embedding vector for a single text."""
         if self._provider == "openai":
-            return await self._embed_openai(text)
+            vector = await self._embed_openai(text)
         elif self._provider == "ollama":
-            return await self._embed_ollama(text)
+            vector = await self._embed_ollama(text)
         else:
-            return await asyncio.to_thread(self._embed_local, text)
+            vector = await asyncio.to_thread(self._embed_local, text)
+        self._validate_vectors([vector], 1)
+        return vector
 
     async def embed_batch(self, texts: List[str]) -> List[List[float]]:
         """Generate embedding vectors for a batch of texts."""
         if not texts:
             return []
         if self._provider == "openai":
-            return await self._embed_openai_batch(texts)
+            vectors = await self._embed_openai_batch(texts)
         elif self._provider == "ollama":
-            return await self._embed_ollama_batch(texts)
+            vectors = await self._embed_ollama_batch(texts)
         else:
-            return await asyncio.to_thread(self._embed_local_batch, texts)
+            vectors = await asyncio.to_thread(self._embed_local_batch, texts)
+        self._validate_vectors(vectors, len(texts))
+        return vectors
+
+    def _validate_vectors(self, vectors, expected_count):
+        if len(vectors) != expected_count or any(len(v) != self._dim for v in vectors):
+            raise ValueError(
+                f"Embedding response must contain {expected_count} vectors of dimension {self._dim}. "
+                "Check EMBEDDING_DIM and the database schema before re-indexing."
+            )
 
     # -- private helpers -----------------------------------------------------
 
@@ -155,7 +193,9 @@ class EmbeddingProvider:
                     "sentence-transformers is required for local embeddings. "
                     "Install it with: pip install sentence-transformers"
                 ) from exc
-            logger.info("Loading local SentenceTransformer model '%s'...", self._model_name)
+            logger.info(
+                "Loading local SentenceTransformer model '%s'...", self._model_name
+            )
             self._local_model = SentenceTransformer(self._model_name)
         return self._local_model
 
@@ -172,7 +212,9 @@ class EmbeddingProvider:
     async def _embed_ollama(self, text: str) -> List[float]:
         url = f"{self._ollama_base_url}/api/embeddings"
         async with httpx.AsyncClient(timeout=30.0) as client:
-            resp = await client.post(url, json={"model": self._model_name, "prompt": text})
+            resp = await client.post(
+                url, json={"model": self._model_name, "prompt": text}
+            )
             resp.raise_for_status()
             data = resp.json()
             return data.get("embedding", [])
@@ -185,6 +227,11 @@ class EmbeddingProvider:
         response = await self._openai_client.embeddings.create(
             model=self._model_name,
             input=text,
+            **(
+                {"dimensions": self._dim}
+                if self._model_name.startswith("text-embedding-3-")
+                else {}
+            ),
         )
         return response.data[0].embedding
 
@@ -192,8 +239,16 @@ class EmbeddingProvider:
         response = await self._openai_client.embeddings.create(
             model=self._model_name,
             input=texts,
+            **(
+                {"dimensions": self._dim}
+                if self._model_name.startswith("text-embedding-3-")
+                else {}
+            ),
         )
-        return [item.embedding for item in response.data]
+        return [
+            item.embedding
+            for item in sorted(response.data, key=lambda item: item.index)
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -214,4 +269,3 @@ def get_embedding_provider() -> EmbeddingProvider:
 def get_embedding_dim() -> int:
     """Return the configured embedding dimension."""
     return int(os.getenv("EMBEDDING_DIM", "384"))
-

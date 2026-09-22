@@ -91,22 +91,18 @@ async def close_database():
 async def execute_init_sql(sql_path: str):
     """Run the schema SQL if tables do not exist yet."""
     async with db_pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            SELECT EXISTS (
-                SELECT 1
-                FROM information_schema.tables
-                WHERE table_name = 'documents'
-            ) AS exists
-        """)
-
-        if row["exists"]:
-            logger.info("Schema already initialised — skipping.")
-            return
-
-        with open(sql_path, "r", encoding="utf-8") as fh:
-            sql = fh.read()
-            await conn.execute(sql)
-            logger.info("Schema created successfully.")
+        from pathlib import Path
+        async with conn.transaction():
+            await conn.execute('SELECT pg_advisory_xact_lock(724319)')
+            if not await conn.fetchval("SELECT to_regclass('documents') IS NOT NULL"):
+                await conn.execute(Path(sql_path).read_text(encoding='utf-8'))
+            await conn.execute('CREATE TABLE IF NOT EXISTS relay_migrations (version TEXT PRIMARY KEY)')
+            if not await conn.fetchval("SELECT 1 FROM relay_migrations WHERE version='002_retrieval'"):
+                await conn.execute(Path(sql_path).with_name('002_retrieval.sql').read_text(encoding='utf-8'))
+                await conn.execute("INSERT INTO relay_migrations VALUES('002_retrieval')")
+            dimension = await conn.fetchval("SELECT atttypmod FROM pg_attribute WHERE attrelid='chunks'::regclass AND attname='embedding'")
+            if dimension != int(os.getenv('EMBEDDING_DIM', '384')):
+                raise ValueError('Database vector dimension differs from EMBEDDING_DIM. Migrate and re-index before switching embedding models.')
 
 
 # ---------------------------------------------------------------------------
@@ -218,12 +214,12 @@ async def get_session_messages(
                 created_at
             FROM messages
             WHERE session_id = $1::uuid
-            ORDER BY created_at
+            ORDER BY created_at DESC, id DESC
         """
         if limit:
-            query += f" LIMIT {limit}"
+            query += " LIMIT $2"
 
-        results = await conn.fetch(query, session_id)
+        results = await conn.fetch(query, session_id, limit) if limit else await conn.fetch(query, session_id)
 
         return [
             {
@@ -233,7 +229,7 @@ async def get_session_messages(
                 "metadata": json.loads(row["metadata"]),
                 "created_at": row["created_at"].isoformat(),
             }
-            for row in results
+            for row in reversed(results)
         ]
 
 

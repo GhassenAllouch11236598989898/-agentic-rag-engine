@@ -13,16 +13,8 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
 -- ── Tables ────────────────────────────────────────────────────
 
-DROP TABLE IF EXISTS messages CASCADE;
-DROP TABLE IF EXISTS sessions CASCADE;
-DROP TABLE IF EXISTS chunks CASCADE;
-DROP TABLE IF EXISTS documents CASCADE;
-DROP INDEX IF EXISTS idx_chunks_embedding;
-DROP INDEX IF EXISTS idx_chunks_document_id;
-DROP INDEX IF EXISTS idx_documents_metadata;
-DROP INDEX IF EXISTS idx_chunks_content_trgm;
 
-CREATE TABLE documents (
+CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title TEXT NOT NULL,
     source TEXT NOT NULL,
@@ -32,10 +24,10 @@ CREATE TABLE documents (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_documents_metadata ON documents USING GIN (metadata);
-CREATE INDEX idx_documents_created_at ON documents (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_documents_metadata ON documents USING GIN (metadata);
+CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents (created_at DESC);
 
-CREATE TABLE chunks (
+CREATE TABLE IF NOT EXISTS chunks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     document_id UUID NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
@@ -46,12 +38,12 @@ CREATE TABLE chunks (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_chunks_embedding ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 1);
-CREATE INDEX idx_chunks_document_id ON chunks (document_id);
-CREATE INDEX idx_chunks_chunk_index ON chunks (document_id, chunk_index);
-CREATE INDEX idx_chunks_content_trgm ON chunks USING GIN (content gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_chunks_embedding ON chunks USING ivfflat (embedding vector_cosine_ops) WITH (lists = 1);
+CREATE INDEX IF NOT EXISTS idx_chunks_document_id ON chunks (document_id);
+CREATE INDEX IF NOT EXISTS idx_chunks_chunk_index ON chunks (document_id, chunk_index);
+CREATE INDEX IF NOT EXISTS idx_chunks_content_trgm ON chunks USING GIN (content gin_trgm_ops);
 
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id TEXT,
     metadata JSONB DEFAULT '{}',
@@ -60,10 +52,10 @@ CREATE TABLE sessions (
     expires_at TIMESTAMP WITH TIME ZONE
 );
 
-CREATE INDEX idx_sessions_user_id ON sessions (user_id);
-CREATE INDEX idx_sessions_expires_at ON sessions (expires_at);
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions (user_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions (expires_at);
 
-CREATE TABLE messages (
+CREATE TABLE IF NOT EXISTS messages (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     role TEXT NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
@@ -72,7 +64,7 @@ CREATE TABLE messages (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_messages_session_id ON messages (session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages (session_id, created_at);
 
 
 -- ── Functions ────────────────────────────────────────────────
@@ -198,7 +190,7 @@ BEGIN
         chunks.metadata
     FROM chunks
     WHERE document_id = doc_id
-    ORDER BY chunk_index;
+    ORDER BY chunks.chunk_index;
 END;
 $$;
 
@@ -212,10 +204,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents
+CREATE OR REPLACE TRIGGER update_documents_updated_at BEFORE UPDATE ON documents
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
+CREATE OR REPLACE TRIGGER update_sessions_updated_at BEFORE UPDATE ON sessions
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ── Views ────────────────────────────────────────────────────

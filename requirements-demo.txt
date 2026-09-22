@@ -1,0 +1,8 @@
+# Minimal, tested dependencies for the local billing demo.
+fastapi==0.141.1
+starlette==1.6.0
+uvicorn==0.53.0
+pydantic==2.13.5
+python-dotenv==1.1.0
+python-multipart==0.0.32
+pypdf==6.19.0

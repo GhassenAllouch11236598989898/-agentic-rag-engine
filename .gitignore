@@ -35,3 +35,5 @@ Thumbs.db
 # ── Data ──
 documents/*.pdf
 *.log
+.data/
+.artifacts/

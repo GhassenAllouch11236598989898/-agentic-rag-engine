@@ -88,13 +88,14 @@ async def vector_search(
     Returns:
         List of matching chunks ordered by similarity (best first)
     """
-    input_data = VectorSearchInput(query=query, limit=limit)
+    safe_limit = min(max(1, limit), 4)
+    input_data = VectorSearchInput(query=query, limit=safe_limit)
     results = await vector_search_tool(input_data)
 
     formatted = [
         {
-            "content": r.content,
-            "score": r.score,
+            "content": r.content[:1500] if len(r.content) > 1500 else r.content,
+            "score": round(r.score, 4),
             "document_title": r.document_title,
             "document_source": r.document_source,
             "chunk_id": r.chunk_id,
@@ -110,7 +111,7 @@ async def vector_search(
 async def hybrid_search(
     ctx: RunContext[AgentDependencies],
     query: str,
-    limit: int = 10,
+    limit: int = 4,
     text_weight: float = 0.3,
 ) -> List[Dict[str, Any]]:
     """
@@ -122,21 +123,22 @@ async def hybrid_search(
 
     Args:
         query: Search query for hybrid search
-        limit: Maximum number of results to return (1-50)
+        limit: Maximum number of results to return (1-10)
         text_weight: Weight for text similarity vs vector similarity (0.0-1.0)
 
     Returns:
         List of chunks ranked by combined relevance score
     """
+    safe_limit = min(max(1, limit), 4)
     input_data = HybridSearchInput(
-        query=query, limit=limit, text_weight=text_weight
+        query=query, limit=safe_limit, text_weight=text_weight
     )
     results = await hybrid_search_tool(input_data)
 
     formatted = [
         {
-            "content": r.content,
-            "score": r.score,
+            "content": r.content[:1500] if len(r.content) > 1500 else r.content,
+            "score": round(r.score, 4),
             "document_title": r.document_title,
             "document_source": r.document_source,
             "chunk_id": r.chunk_id,
@@ -169,11 +171,14 @@ async def get_document(
     document = await get_document_tool(input_data)
 
     if document:
+        content = document.get("content", "")
+        if len(content) > 3000:
+            content = content[:3000] + " ... [truncated]"
         return {
             "id": document["id"],
             "title": document["title"],
             "source": document["source"],
-            "content": document["content"],
+            "content": content,
             "chunk_count": len(document.get("chunks", [])),
             "created_at": document["created_at"],
         }
