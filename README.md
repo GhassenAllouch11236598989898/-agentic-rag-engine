@@ -43,6 +43,8 @@ Billing Copilot provides a complete end-to-end evidence-backed workflow for cust
    - The assistant performs hybrid retrieval across the indexed knowledge base and produces a concise draft containing bracketed citation tags (`[1]`, `[2]`).
    - Click or hover on citations to immediately see the supporting excerpt.
 
+   ![Billing Assistant with Inline Citations](docs/screenshots/01_billing_assistant_citations.jpg)
+
 2. **Source Evidence & Original Document Inspector**:
    - The right-side **Source Evidence** panel lists each retrieved source snippet, match rank, and source document name (e.g. `subscription-changes.md`, `payment-failures.md`).
    - Click **Open original document** to view the unabridged policy text in a side-drawer and verify exact source wording.
@@ -52,16 +54,22 @@ Billing Copilot provides a complete end-to-end evidence-backed workflow for cust
    - Because invoice balance lookups require live payment processor credentials (e.g. Stripe/accounting portal), the engine guards against hallucination.
    - It flags `status: needs_escalation`, displays an amber escalation banner, and prepares a routed transfer note for human billing specialists.
 
+   ![Source Evidence Inspector & Safe Escalation Guardrail](docs/screenshots/02_evidence_source_inspector.jpg)
+
 4. **Dynamic Knowledge Ingestion**:
    - Switch to the **Documents** tab (`#nav-documents`).
    - Upload any `.pdf`, `.md`, or `.txt` policy file via drag-and-drop or file selector.
    - The document is validated, extracted, and indexed instantly without restarting the server.
    - Queries regarding newly added terms are immediately retrievable.
 
+   ![Document Knowledge Ingestion & Management](docs/screenshots/03_document_knowledge_ingestion.jpg)
+
 5. **Automated Quality & Audit Checks**:
    - Switch to the **Quality Checks** tab (`#nav-evaluation`).
    - Click **Run Quality Checks**.
    - The suite runs 6 automated billing test scenarios, validating retrieval accuracy, behavior compliance (draft vs. escalation), citation validity, and response latency.
+
+   ![Quality Checks & Evaluation Benchmark](docs/screenshots/04_quality_checks_benchmark.jpg)
 
 6. **Capacity Planning Calculator**:
    - Open the **Overview** tab (`#nav-overview`).
